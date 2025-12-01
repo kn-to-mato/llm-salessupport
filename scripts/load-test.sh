@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # 営業出張サポートAI 負荷テストスクリプト
-# 10秒ごとに様々なシナリオでAPIを呼び出す
+# 10秒ごとに様々な複雑度のメッセージでAPIを呼び出す
+# メッセージの複雑さに応じてエージェントが自律的に2〜4個のツールを呼ぶ
 
 API_URL="${API_URL:-http://localhost:8000}"
 INTERVAL=10
@@ -11,6 +12,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 log_info() {
@@ -29,215 +31,159 @@ log_scenario() {
     echo -e "${YELLOW}[SCENARIO]${NC} $(date '+%H:%M:%S') $1"
 }
 
-# シナリオ1: 2回のエージェント呼び出し（シンプル）
-scenario_simple() {
-    log_scenario "Simple: 2 turns - Quick question and answer"
+log_tools() {
+    echo -e "${CYAN}[TOOLS]${NC} $1"
+}
+
+# シナリオ1: 2ツール呼び出し（規程確認 + 交通検索）
+# エージェントは policy_checker と transportation_search を呼ぶ想定
+scenario_2tools_transport() {
+    log_scenario "2 Tools: Policy + Transport search"
+    log_tools "Expected: policy_checker -> transportation_search"
     
-    # 1回目: 初期質問
+    MESSAGE="名古屋に日帰り出張したいのですが、新幹線で行く場合の規程と便を教えてください"
+    
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d '{"message": "名古屋に日帰り出張したいです", "user_id": "test-user-simple"}')
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-2tools-transport\"}")
     
-    SESSION_ID=$(echo $RESPONSE | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-    
-    if [ -z "$SESSION_ID" ]; then
-        log_error "Failed to get session_id"
-        return 1
-    fi
-    
-    log_info "Session started: $SESSION_ID"
-    sleep 1
-    
-    # 2回目: 日程指定
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"明日の朝出発で、新幹線希望です\", \"user_id\": \"test-user-simple\"}")
-    
-    if echo "$RESPONSE" | grep -q "plans"; then
-        log_success "Simple scenario completed with plans"
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error: $RESPONSE"
     else
-        log_info "Simple scenario completed (no plans yet)"
+        log_success "Response received"
     fi
 }
 
-# シナリオ2: 3回のエージェント呼び出し（標準）
-scenario_standard() {
-    log_scenario "Standard: 3 turns - Osaka trip with details"
+# シナリオ2: 2ツール呼び出し（規程確認 + ホテル検索）
+# エージェントは policy_checker と hotel_search を呼ぶ想定
+scenario_2tools_hotel() {
+    log_scenario "2 Tools: Policy + Hotel search"
+    log_tools "Expected: policy_checker -> hotel_search"
     
-    # 1回目: 初期質問
+    MESSAGE="大阪出張で1泊する場合、宿泊規程と梅田周辺のホテルを教えてください"
+    
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d '{"message": "来週大阪に出張したいです。東京発で2泊3日", "user_id": "test-user-standard"}')
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-2tools-hotel\"}")
     
-    SESSION_ID=$(echo $RESPONSE | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-    
-    if [ -z "$SESSION_ID" ]; then
-        log_error "Failed to get session_id"
-        return 1
-    fi
-    
-    log_info "Session started: $SESSION_ID"
-    sleep 1
-    
-    # 2回目: 日程と予算
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"12月15日から17日で、予算は5万円以内です\", \"user_id\": \"test-user-standard\"}")
-    
-    log_info "Added date and budget"
-    sleep 1
-    
-    # 3回目: 交通手段指定
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"新幹線のぞみで行きたいです\", \"user_id\": \"test-user-standard\"}")
-    
-    if echo "$RESPONSE" | grep -q "plans"; then
-        log_success "Standard scenario completed with plans"
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error: $RESPONSE"
     else
-        log_info "Standard scenario completed"
+        log_success "Response received"
     fi
 }
 
-# シナリオ3: 4回のエージェント呼び出し（詳細）
-scenario_detailed() {
-    log_scenario "Detailed: 4 turns - Fukuoka trip with negotiation"
+# シナリオ3: 3ツール呼び出し（規程 + 交通 + ホテル）
+# エージェントは policy_checker, transportation_search, hotel_search を呼ぶ想定
+scenario_3tools() {
+    log_scenario "3 Tools: Policy + Transport + Hotel"
+    log_tools "Expected: policy_checker -> transportation_search -> hotel_search"
     
-    # 1回目: 初期質問
+    MESSAGE="来週福岡に2泊3日で出張します。東京から飛行機で行って、博多駅近くのホテルに泊まりたいです。規程内で収まりますか？"
+    
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d '{"message": "福岡に出張に行きたいのですが", "user_id": "test-user-detailed"}')
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-3tools\"}")
     
-    SESSION_ID=$(echo $RESPONSE | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-    
-    if [ -z "$SESSION_ID" ]; then
-        log_error "Failed to get session_id"
-        return 1
-    fi
-    
-    log_info "Session started: $SESSION_ID"
-    sleep 1
-    
-    # 2回目: 基本情報
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"東京から、来月の10日から12日の2泊3日です\", \"user_id\": \"test-user-detailed\"}")
-    
-    log_info "Added basic info"
-    sleep 1
-    
-    # 3回目: 予算と希望
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"予算は7万円くらいで、できれば飛行機がいいです\", \"user_id\": \"test-user-detailed\"}")
-    
-    log_info "Added budget and preference"
-    sleep 1
-    
-    # 4回目: 追加要望
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"ホテルは博多駅近くがいいです。朝食付きだとなお良い\", \"user_id\": \"test-user-detailed\"}")
-    
-    if echo "$RESPONSE" | grep -q "plans"; then
-        log_success "Detailed scenario completed with plans"
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error: $RESPONSE"
     else
-        log_info "Detailed scenario completed"
+        log_success "Response received"
     fi
 }
 
-# シナリオ4: 5回のエージェント呼び出し（プラン確定まで）
-scenario_full() {
-    log_scenario "Full: 5 turns - Complete flow with plan confirmation"
+# シナリオ4: 3ツール呼び出し（条件抽出 + 交通 + ホテル）
+# エージェントは condition_extractor, transportation_search, hotel_search を呼ぶ想定
+scenario_3tools_extract() {
+    log_scenario "3 Tools: Extract + Transport + Hotel"
+    log_tools "Expected: condition_extractor -> transportation_search -> hotel_search"
     
-    # 1回目: 初期質問
+    MESSAGE="12月15日から17日まで札幌出張。予算は8万円で、できれば千歳空港からアクセスの良いホテルがいいです"
+    
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d '{"message": "仙台に出張したいです", "user_id": "test-user-full"}')
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-3tools-extract\"}")
     
-    SESSION_ID=$(echo $RESPONSE | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-    
-    if [ -z "$SESSION_ID" ]; then
-        log_error "Failed to get session_id"
-        return 1
-    fi
-    
-    log_info "Session started: $SESSION_ID"
-    sleep 1
-    
-    # 2回目: 出発地
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"東京駅から出発します\", \"user_id\": \"test-user-full\"}")
-    
-    log_info "Added departure"
-    sleep 1
-    
-    # 3回目: 日程
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"12月20日から21日の1泊2日です\", \"user_id\": \"test-user-full\"}")
-    
-    log_info "Added dates"
-    sleep 1
-    
-    # 4回目: 予算と交通
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"予算4万円、はやぶさで行きたいです\", \"user_id\": \"test-user-full\"}")
-    
-    log_info "Added budget and transport"
-    
-    # プランIDを取得
-    PLAN_ID=$(echo $RESPONSE | grep -o '"plan_id":"[^"]*"' | head -1 | cut -d'"' -f4)
-    sleep 1
-    
-    # 5回目: プラン確定（プランがあれば）
-    if [ -n "$PLAN_ID" ]; then
-        RESPONSE=$(curl -s -X POST "$API_URL/api/plan/confirm" \
-            -H "Content-Type: application/json" \
-            -d "{\"session_id\": \"$SESSION_ID\", \"plan_id\": \"$PLAN_ID\", \"user_id\": \"test-user-full\"}")
-        
-        if echo "$RESPONSE" | grep -q "confirmed"; then
-            log_success "Full scenario completed with plan confirmation"
-        else
-            log_info "Plan confirmation response received"
-        fi
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error: $RESPONSE"
     else
-        log_info "Full scenario completed (no plan to confirm)"
+        log_success "Response received"
     fi
 }
 
-# シナリオ5: 札幌出張（飛行機）
-scenario_sapporo() {
-    log_scenario "Sapporo: 3 turns - Flight to Hokkaido"
+# シナリオ5: 4ツール呼び出し（フル）
+# エージェントは policy_checker, condition_extractor, transportation_search, hotel_search を呼ぶ想定
+scenario_4tools_full() {
+    log_scenario "4 Tools: Full pipeline"
+    log_tools "Expected: condition_extractor -> policy_checker -> transportation_search -> hotel_search"
     
-    # 1回目
+    MESSAGE="来月10日から12日まで、東京から広島に出張します。2泊3日で、新幹線のぞみを使って、広島駅から徒歩10分以内のビジネスホテルに泊まりたいです。予算は6万円以内で規程に収まるプランを提案してください"
+    
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d '{"message": "札幌に3泊4日で出張したいです。予算は10万円", "user_id": "test-user-sapporo"}')
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-4tools-full\"}")
     
-    SESSION_ID=$(echo $RESPONSE | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-    log_info "Session started: $SESSION_ID"
-    sleep 1
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error: $RESPONSE"
+    else
+        log_success "Response received"
+    fi
+}
+
+# シナリオ6: 4ツール + プラン生成
+# エージェントは全ツールを使ってプランまで生成する想定
+scenario_4tools_plan() {
+    log_scenario "4+ Tools: Full with plan generation"
+    log_tools "Expected: condition_extractor -> policy_checker -> transportation_search -> hotel_search -> plan_generator"
     
-    # 2回目
+    MESSAGE="急ぎで仙台出張のプランを作ってください。明後日から1泊2日、東京駅発で新幹線はやぶさ希望。ホテルは仙台駅近くで朝食付き。予算4万円で最適なプランを出してください"
+    
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"東京から12月25日出発、28日帰着です\", \"user_id\": \"test-user-sapporo\"}")
-    
-    log_info "Added dates"
-    sleep 1
-    
-    # 3回目
-    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
-        -H "Content-Type: application/json" \
-        -d "{\"session_id\": \"$SESSION_ID\", \"message\": \"飛行機で行きます。ホテルはすすきの周辺希望\", \"user_id\": \"test-user-sapporo\"}")
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-4tools-plan\"}")
     
     if echo "$RESPONSE" | grep -q "plans"; then
-        log_success "Sapporo scenario completed with plans"
+        log_success "Response received with plans!"
+    elif echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error"
     else
-        log_info "Sapporo scenario completed"
+        log_success "Response received"
+    fi
+}
+
+# シナリオ7: 複雑な条件（4ツール想定）
+scenario_complex() {
+    log_scenario "4 Tools: Complex requirements"
+    log_tools "Expected: Multiple tool calls for complex request"
+    
+    MESSAGE="名古屋支社との会議のため、12月20日から22日まで2泊3日で出張します。東京から新幹線で行き、名古屋駅から徒歩圏内のホテルに宿泊希望。会議が遅くなる可能性があるので朝食付きで。予算は5万円、規程内で最もコスパの良いプランをお願いします"
+    
+    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
+        -H "Content-Type: application/json" \
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-complex\"}")
+    
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error"
+    else
+        log_success "Response received"
+    fi
+}
+
+# シナリオ8: シンプルな規程確認（2ツール）
+scenario_simple_policy() {
+    log_scenario "2 Tools: Simple policy check"
+    log_tools "Expected: condition_extractor -> policy_checker"
+    
+    MESSAGE="国内出張の日当と宿泊費の上限を教えてください"
+    
+    RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
+        -H "Content-Type: application/json" \
+        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-simple-policy\"}")
+    
+    if echo "$RESPONSE" | grep -q "error"; then
+        log_error "API error"
+    else
+        log_success "Response received"
     fi
 }
 
@@ -257,6 +203,9 @@ main() {
     echo "  Sales Support AI Load Test"
     echo "  API: $API_URL"
     echo "  Interval: ${INTERVAL}s"
+    echo ""
+    echo "  Each message triggers 2-4+ tool calls"
+    echo "  by the AI agent autonomously"
     echo "========================================"
     echo ""
     
@@ -269,8 +218,17 @@ main() {
     log_success "API is healthy"
     echo ""
     
-    # シナリオリスト
-    SCENARIOS=("simple" "standard" "detailed" "full" "sapporo")
+    # シナリオリスト（ツール呼び出し数順）
+    SCENARIOS=(
+        "2tools_transport"   # 2 tools
+        "2tools_hotel"       # 2 tools
+        "simple_policy"      # 2 tools
+        "3tools"             # 3 tools
+        "3tools_extract"     # 3 tools
+        "4tools_full"        # 4 tools
+        "4tools_plan"        # 4+ tools
+        "complex"            # 4 tools
+    )
     SCENARIO_COUNT=${#SCENARIOS[@]}
     
     ITERATION=0
@@ -286,20 +244,29 @@ main() {
         SELECTED=${SCENARIOS[$RANDOM_INDEX]}
         
         case $SELECTED in
-            "simple")
-                scenario_simple
+            "2tools_transport")
+                scenario_2tools_transport
                 ;;
-            "standard")
-                scenario_standard
+            "2tools_hotel")
+                scenario_2tools_hotel
                 ;;
-            "detailed")
-                scenario_detailed
+            "simple_policy")
+                scenario_simple_policy
                 ;;
-            "full")
-                scenario_full
+            "3tools")
+                scenario_3tools
                 ;;
-            "sapporo")
-                scenario_sapporo
+            "3tools_extract")
+                scenario_3tools_extract
+                ;;
+            "4tools_full")
+                scenario_4tools_full
+                ;;
+            "4tools_plan")
+                scenario_4tools_plan
+                ;;
+            "complex")
+                scenario_complex
                 ;;
         esac
         
@@ -314,4 +281,3 @@ trap 'echo ""; log_info "Stopping load test..."; exit 0' INT
 
 # 実行
 main "$@"
-
