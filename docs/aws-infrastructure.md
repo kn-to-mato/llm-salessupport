@@ -179,6 +179,79 @@ aws logs tail /ecs/kentomax_sales-support-backend --follow --profile kentomax-ad
 2. **データ永続化なし**: 現在はインメモリセッション管理。ECS再起動でセッションリセット
 3. **Aurora PostgreSQL**: `kentomax-eks-go-shop-aurora` が存在するが未接続（パスワード不明）
 
+## Next Steps (TODO)
+
+### 1. FireLensへの切り替え
+
+**現状**: `awslogs` ドライバでCloudWatch Logsに直接送信
+
+**目標**: FireLens (Fluent Bit) 経由でログをルーティング
+
+**変更内容**:
+- タスク定義にFluent Bitサイドカーコンテナを追加
+- `logDriver` を `awslogs` → `awsfirelens` に変更
+- Datadog等への転送設定を追加可能に
+
+**変更例**:
+```json
+// サイドカー追加
+{
+  "name": "log_router",
+  "image": "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable",
+  "essential": true,
+  "firelensConfiguration": {
+    "type": "fluentbit",
+    "options": { "enable-ecs-log-metadata": "true" }
+  }
+}
+
+// アプリコンテナのlogConfiguration変更
+{
+  "logDriver": "awsfirelens",
+  "options": {
+    "Name": "cloudwatch_logs",
+    "region": "ap-northeast-1",
+    "log_group_name": "/ecs/kentomax_sales-support-backend",
+    "auto_create_group": "true"
+  }
+}
+```
+
+**注意**: コード修正はCursor、デプロイは手動で確認しながら進める
+
+---
+
+### 2. Terraformでインフラ管理
+
+**現状**: AWS CLIで手動作成
+
+**目標**: Terraformでインフラをコード管理 (IaC)
+
+**管理対象リソース**:
+- ECSクラスター、サービス、タスク定義
+- ALB、ターゲットグループ、リスナールール
+- セキュリティグループ
+- ECRリポジトリ
+- CloudWatch Logsロググループ
+- Secrets Manager
+- IAMロール
+
+**ディレクトリ構成案**:
+```
+terraform/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── ecs.tf
+├── alb.tf
+├── security_groups.tf
+├── ecr.tf
+├── iam.tf
+└── terraform.tfvars
+```
+
+---
+
 ## 将来の拡張
 
 - [ ] Aurora PostgreSQL接続によるセッション永続化
