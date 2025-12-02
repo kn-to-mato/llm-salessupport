@@ -76,6 +76,3 @@ export function ChatInput({ onSend, disabled, placeholder = 'メッセージを�
     </div>
   );
 }
-
-
-

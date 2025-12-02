@@ -126,6 +126,3 @@ export function useChat() {
     reset,
   };
 }
-
-
-

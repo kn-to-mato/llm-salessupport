@@ -51,6 +51,3 @@ export function Header({ onReset, sessionId }: HeaderProps) {
     </header>
   );
 }
-
-
-

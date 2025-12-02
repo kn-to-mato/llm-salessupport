@@ -51,6 +51,3 @@ echo "🌐 アクセス:"
 echo "   - フロントエンド: http://localhost:5173"
 echo "   - バックエンドAPI: http://localhost:8000"
 echo "   - APIドキュメント: http://localhost:8000/docs"
-
-
-

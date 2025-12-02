@@ -64,5 +64,3 @@ def setup_logging() -> None:
 def get_logger(name: str = __name__) -> structlog.stdlib.BoundLogger:
     """ロガーを取得"""
     return structlog.get_logger(name)
-
-

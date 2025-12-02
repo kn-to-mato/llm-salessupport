@@ -123,6 +123,3 @@ aws ecs update-service --cluster kentomax_sales-support-cluster --service kentom
 ## ライセンス
 
 MIT License
-
-
-

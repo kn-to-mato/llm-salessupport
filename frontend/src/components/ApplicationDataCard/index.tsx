@@ -112,6 +112,3 @@ export function ApplicationDataCard({ data }: ApplicationDataCardProps) {
     </div>
   );
 }
-
-
-

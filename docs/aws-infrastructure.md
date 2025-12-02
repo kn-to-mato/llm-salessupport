@@ -258,4 +258,3 @@ terraform/
 - [ ] HTTPS対応 (ACM証明書 + Route53)
 - [ ] Datadog LLM Observability統合
 - [ ] Auto Scaling設定
-
