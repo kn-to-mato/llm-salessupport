@@ -37,3 +37,4 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """設定のシングルトンを取得"""
     return Settings()
+

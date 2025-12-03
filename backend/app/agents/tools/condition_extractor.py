@@ -30,3 +30,4 @@ class ConditionExtractorTool(BaseTool):
     async def _arun(self, user_message: str) -> Dict[str, Any]:
         """非同期実行"""
         return self._run(user_message)
+

@@ -113,60 +113,25 @@ async def send_message(request: ChatRequest) -> ChatResponse:
                 conditions=updated_conditions,
             )
         
-        # 条件が揃っていればプランを生成
-        updated_session = session_manager.get_session(session.session_id)
-        plans = []
+        # process_message の結果からプランを取得
+        # AgentExecutor が plan_generator を呼んだ場合、結果に含まれる
+        plans = result.get("plans", [])
         
-        conditions = updated_session.conditions
-        conditions_complete = all([
-            conditions.departure_location,
-            conditions.destination,
-            conditions.depart_date,
-            conditions.return_date,
-        ])
-        
-        logger.debug(
-            "conditions_check",
-            session_id=session.session_id,
-            conditions_complete=conditions_complete,
-            has_departure=bool(conditions.departure_location),
-            has_destination=bool(conditions.destination),
-            has_depart_date=bool(conditions.depart_date),
-            has_return_date=bool(conditions.return_date),
-        )
-        
-        if conditions_complete:
-            # プラン生成
-            logger.info(
-                "plan_generation_start",
-                session_id=session.session_id,
-                departure=conditions.departure_location,
-                destination=conditions.destination,
-                depart_date=conditions.depart_date,
-                return_date=conditions.return_date,
-                budget=conditions.budget,
-            )
-            
-            plan_start = time.time()
-            plans = await agent.generate_plans(conditions)
-            plan_duration = time.time() - plan_start
-            
+        if plans:
             session_manager.add_plans(session.session_id, plans)
             
             logger.info(
-                "plan_generation_complete",
+                "plans_from_agent",
                 session_id=session.session_id,
                 plan_count=len(plans),
-                duration_ms=round(plan_duration * 1000, 2),
-                plan_labels=[p.label for p in plans],
             )
             
             for plan in plans:
                 logger.debug(
                     "plan_detail",
                     session_id=session.session_id,
-                    plan_id=plan.plan_id,
-                    label=plan.label,
+                    plan_id=getattr(plan, 'plan_id', None) or getattr(plan, 'id', 'unknown'),
+                    label=getattr(plan, 'label', None) or getattr(plan, 'name', 'unknown'),
                     destination=plan.summary.destination,
                     estimated_total=plan.summary.estimated_total,
                     policy_status=plan.summary.policy_status,

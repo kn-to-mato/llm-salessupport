@@ -23,6 +23,10 @@ export function ChatInput({ onSend, disabled, placeholder = 'メッセージを�
   }, [value, disabled, onSend]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // IME変換中（日本語入力の確定時など）はEnterで送信しない
+    if (e.nativeEvent.isComposing) {
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();

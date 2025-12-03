@@ -239,3 +239,4 @@ class HotelSearchTool(BaseTool):
     async def _arun(self, **kwargs) -> Dict[str, Any]:
         """非同期実行"""
         return self._run(**kwargs)
+

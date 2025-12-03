@@ -85,3 +85,4 @@ export function WelcomeMessage({ onExampleClick }: WelcomeMessageProps) {
     </div>
   );
 }
+

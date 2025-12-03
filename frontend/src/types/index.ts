@@ -90,3 +90,4 @@ export interface ChatMessage extends Message {
   plans?: TravelPlan[];
   applicationData?: ApplicationPayload;
 }
+

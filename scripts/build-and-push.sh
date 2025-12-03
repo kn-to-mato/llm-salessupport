@@ -48,3 +48,4 @@ echo ""
 echo "イメージ:"
 echo "  - Backend: $ECR_BASE/$BACKEND_REPO:latest"
 echo "  - Frontend: $ECR_BASE/$FRONTEND_REPO:latest"
+

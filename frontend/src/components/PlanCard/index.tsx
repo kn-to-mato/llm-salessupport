@@ -140,3 +140,4 @@ export function PlanCard({ plan, onSelect }: PlanCardProps) {
     </div>
   );
 }
+
