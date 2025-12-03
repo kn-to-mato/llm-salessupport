@@ -4,6 +4,9 @@ from typing import List
 
 from pydantic_settings import BaseSettings
 
+# バージョンタグ（TypeScript版との区別用）
+APP_VERSION = "python-langchain-v1"
+
 
 class Settings(BaseSettings):
     """アプリケーション設定"""

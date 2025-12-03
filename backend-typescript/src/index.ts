@@ -1,3 +1,7 @@
+// トレーサーは最初にインポート（他のモジュールより前）
+import "./tracer";
+import tracer, { APP_VERSION, llmobs } from "./tracer";
+
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -20,7 +24,11 @@ app.use(
 
 // ヘルスチェック
 app.get("/health", (c) => {
-  return c.json({ status: "healthy" });
+  return c.json({ 
+    status: "healthy",
+    version: APP_VERSION,
+    framework: "typescript-mastra",
+  });
 });
 
 // APIルート
@@ -32,9 +40,10 @@ const port = parseInt(process.env.PORT || "3000", 10);
 console.log(`🚀 Server starting on port ${port}...`);
 console.log(`📍 Health check: http://localhost:${port}/health`);
 console.log(`💬 Chat API: http://localhost:${port}/api/chat`);
+console.log(`🔷 Version: ${APP_VERSION}`);
+console.log(`📊 Datadog LLM Observability: ${process.env.DD_LLMOBS_ENABLED === "1" ? "enabled" : "disabled"}`);
 
 serve({
   fetch: app.fetch,
   port,
 });
-

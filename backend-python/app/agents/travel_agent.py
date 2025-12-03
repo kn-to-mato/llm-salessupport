@@ -23,7 +23,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 # Datadog LLM Observability SDK
 from ddtrace.llmobs import LLMObs
 
-from app.config import get_settings
+from app.config import get_settings, APP_VERSION
 from app.logging_config import get_logger
 from app.models.schemas import (
     TravelConditions, 
@@ -287,6 +287,7 @@ class TravelSupportAgent:
                     "user_message": user_message,
                     "history_count": len(session_data.messages),
                     "current_conditions": session_data.conditions.model_dump(),
+                    "version": APP_VERSION,
                 },
             )
             

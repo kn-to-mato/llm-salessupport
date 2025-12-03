@@ -4,11 +4,28 @@
 
 このドキュメントでは、Datadog LLM Observability を本プロジェクトに導入した際の実装内容、学んだこと、設計判断をまとめる。
 
+**両バックエンド（Python/TypeScript）で同じ計装構造を実装し、バージョンタグで区別する。**
+
+---
+
+## 0. バージョンタグによる区別
+
+| バックエンド | バージョンタグ | フレームワーク |
+|-------------|--------------|---------------|
+| Python | `python-langchain-v1` | LangChain + FastAPI |
+| TypeScript | `typescript-mastra-v1` | Mastra + Hono |
+
+Datadog LLM Observability でフィルタ:
+```
+@version:python-langchain-v1    # Python版のみ
+@version:typescript-mastra-v1   # TypeScript版のみ
+```
+
 ---
 
 ## 1. 実装したこと
 
-### 1.1 ddtrace の導入
+### 1.1 Python版: ddtrace の導入
 
 ```bash
 # requirements.txt に追加
@@ -20,14 +37,36 @@ ddtrace>=3.11.0
 CMD ["ddtrace-run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-### 1.2 環境変数の設定
+### 1.2 TypeScript版: dd-trace の導入
+
+```bash
+# package.json に追加
+npm install dd-trace
+```
+
+```typescript
+// src/tracer.ts（最初にインポート）
+import tracer from "dd-trace";
+
+export const APP_VERSION = "typescript-mastra-v1";
+
+tracer.init({
+  service: process.env.DD_SERVICE || "llm-salessupport-backend-typescript",
+  env: process.env.DD_ENV || "dev",
+  version: APP_VERSION,
+});
+
+export const llmobs = tracer.llmobs;
+```
+
+### 1.3 環境変数の設定（共通）
 
 ```bash
 DD_API_KEY=<your-api-key>
-DD_SERVICE=python-llm-salessupport-demo-backend
+DD_SERVICE=llm-salessupport-backend-python  # または -typescript
 DD_ENV=dev
 DD_LLMOBS_ENABLED=1
-DD_LLMOBS_ML_APP=python-llm-salessupport-demo
+DD_LLMOBS_ML_APP=llm-salessupport
 DD_LLMOBS_AGENTLESS_ENABLED=1
 ```
 

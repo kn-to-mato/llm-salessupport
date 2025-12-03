@@ -1,5 +1,13 @@
+/**
+ * チャット API ルート
+ * 
+ * Datadog LLM Observability SDK による計装:
+ * - Python版と同じ構造でトレースを生成
+ * - agent スパン → workflow スパン の階層構造
+ */
 import { Hono } from "hono";
 import { travelAgent } from "../agents";
+import { llmobs, APP_VERSION } from "../tracer";
 
 // セッションデータの型定義
 interface SessionData {
@@ -35,6 +43,8 @@ export const chatRouter = new Hono();
 
 // チャットエンドポイント
 chatRouter.post("/", async (c) => {
+  const startTime = Date.now();
+  
   try {
     const body = await c.req.json();
     const { message, session_id } = body;
@@ -46,42 +56,110 @@ chatRouter.post("/", async (c) => {
     const sessionId = session_id || crypto.randomUUID();
     const session = getOrCreateSession(sessionId);
 
-    // チャット履歴にユーザーメッセージを追加
-    session.chatHistory.push({ role: "user", content: message });
+    // === LLMObs: Agent スパンを開始（Python版と同じ構造） ===
+    const response = await llmobs.trace(
+      {
+        kind: "agent",
+        name: "travel-support-agent",
+        sessionId: sessionId,
+        mlApp: process.env.DD_LLMOBS_ML_APP || "llm-salessupport",
+      },
+      async (agentSpan) => {
+        // 入力データをアノテート
+        llmobs.annotate(agentSpan, {
+          inputData: {
+            user_message: message,
+            history_count: session.chatHistory.length,
+            current_conditions: session.conditions,
+            version: APP_VERSION,
+          },
+        });
 
-    // コンテキスト情報を構築
-    const contextInfo = Object.entries(session.conditions)
-      .filter(([_, v]) => v !== undefined)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(", ");
+        // チャット履歴にユーザーメッセージを追加
+        session.chatHistory.push({ role: "user", content: message });
 
-    const contextMessage = contextInfo
-      ? `\n\n【現在の条件】${contextInfo}`
-      : "";
+        // コンテキスト情報を構築
+        const contextInfo = Object.entries(session.conditions)
+          .filter(([_, v]) => v !== undefined)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ");
 
-    // エージェントを実行
-    const result = await travelAgent.generate(message + contextMessage, {
-      maxSteps: 10,
-    });
+        const contextMessage = contextInfo
+          ? `\n\n【現在の条件】${contextInfo}`
+          : "";
 
-    // アシスタントの応答を履歴に追加
-    session.chatHistory.push({ role: "assistant", content: result.text });
+        // === LLMObs: Workflow スパン（AgentExecutor相当） ===
+        const result = await llmobs.trace(
+          {
+            kind: "workflow",
+            name: "agent_execution",
+          },
+          async (workflowSpan) => {
+            llmobs.annotate(workflowSpan, {
+              inputData: {
+                user_message: message,
+                available_tools: ["policy_checker", "transportation_search", "hotel_search", "plan_generator"],
+              },
+            });
 
-    // プラン情報を抽出（簡易実装）
-    const plans = extractPlansFromResponse(result.text);
+            // エージェントを実行
+            const agentResult = await travelAgent.generate(message + contextMessage, {
+              maxSteps: 10,
+            });
 
-    return c.json({
-      response: result.text,
-      session_id: sessionId,
-      plans,
-      conditions: session.conditions,
-    });
+            llmobs.annotate(workflowSpan, {
+              outputData: {
+                response_length: agentResult.text.length,
+                tools_available: ["policy_checker", "transportation_search", "hotel_search", "plan_generator"],
+              },
+            });
+
+            return agentResult;
+          }
+        );
+
+        // アシスタントの応答を履歴に追加
+        session.chatHistory.push({ role: "assistant", content: result.text });
+
+        // プラン情報を抽出
+        const plans = extractPlansFromResponse(result.text);
+
+        const responseData = {
+          response: result.text,
+          session_id: sessionId,
+          plans,
+          conditions: session.conditions,
+          _metadata: {
+            version: APP_VERSION,
+            framework: "typescript-mastra",
+            duration_ms: Date.now() - startTime,
+          },
+        };
+
+        // 出力データをアノテート
+        llmobs.annotate(agentSpan, {
+          outputData: {
+            response_length: result.text.length,
+            plans_count: plans.length,
+            duration_ms: Date.now() - startTime,
+          },
+        });
+
+        return responseData;
+      }
+    );
+
+    return c.json(response);
   } catch (error) {
     console.error("Chat error:", error);
     return c.json(
       {
         error: "Internal server error",
         details: error instanceof Error ? error.message : "Unknown error",
+        _metadata: {
+          version: APP_VERSION,
+          framework: "typescript-mastra",
+        },
       },
       500
     );
@@ -104,6 +182,10 @@ chatRouter.post("/reset", async (c) => {
     return c.json({
       message: "Session reset successfully",
       session_id: newSessionId,
+      _metadata: {
+        version: APP_VERSION,
+        framework: "typescript-mastra",
+      },
     });
   } catch (error) {
     console.error("Reset error:", error);
@@ -111,7 +193,7 @@ chatRouter.post("/reset", async (c) => {
   }
 });
 
-// レスポンスからプラン情報を抽出（簡易実装）
+// レスポンスからプラン情報を抽出
 function extractPlansFromResponse(text: string): Array<{
   name: string;
   transportation: string;
@@ -137,4 +219,3 @@ function extractPlansFromResponse(text: string): Array<{
 
   return plans;
 }
-
