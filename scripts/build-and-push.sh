@@ -19,7 +19,7 @@ aws ecr get-login-password --region $REGION --profile $PROFILE | docker login --
 
 echo ""
 echo "🏗️ バックエンドイメージをビルド中..."
-docker build --platform linux/amd64 -t $BACKEND_REPO:latest ./backend
+docker build --platform linux/amd64 -t $BACKEND_REPO:latest ./backend-python
 docker tag $BACKEND_REPO:latest $ECR_BASE/$BACKEND_REPO:latest
 
 echo ""

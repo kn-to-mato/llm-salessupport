@@ -6,7 +6,29 @@ interface HeaderProps {
   sessionId?: string;
 }
 
+// バックエンドの種類を取得
+const BACKEND_TYPE = import.meta.env.VITE_BACKEND || 'python';
+
+const backendInfo = {
+  python: {
+    label: 'Python + LangChain',
+    color: 'from-blue-500 to-yellow-500',
+    textColor: 'text-blue-400',
+    borderColor: 'border-blue-500/30',
+    icon: '🐍',
+  },
+  typescript: {
+    label: 'TypeScript + Mastra',
+    color: 'from-blue-400 to-cyan-400',
+    textColor: 'text-cyan-400',
+    borderColor: 'border-cyan-500/30',
+    icon: '🔷',
+  },
+};
+
 export function Header({ onReset, sessionId }: HeaderProps) {
+  const backend = backendInfo[BACKEND_TYPE as keyof typeof backendInfo] || backendInfo.python;
+
   return (
     <header className="glass-panel border-b border-dark-700/50">
       <div className="max-w-6xl mx-auto px-4 py-4">
@@ -17,9 +39,21 @@ export function Header({ onReset, sessionId }: HeaderProps) {
               <Briefcase className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold gradient-text">
-                営業出張サポートAI
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold gradient-text">
+                  営業出張サポートAI
+                </h1>
+                {/* Backend Badge */}
+                <span className={clsx(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                  "bg-dark-800/80 border",
+                  backend.borderColor,
+                  backend.textColor
+                )}>
+                  <span>{backend.icon}</span>
+                  <span className="hidden sm:inline">{backend.label}</span>
+                </span>
+              </div>
               <p className="text-xs text-dark-400">
                 出張計画をAIがサポートします
               </p>

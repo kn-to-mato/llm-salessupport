@@ -22,12 +22,12 @@ services:
       - "please_keep_it=true"
       - "user=kento.tomatsu"
 
-  # Backend API
-  backend:
+  # Backend API (Python + LangChain)
+  backend-python:
     build:
-      context: ./backend
+      context: ./backend-python
       dockerfile: Dockerfile
-    container_name: kentomax_sales_support_backend
+    container_name: kentomax_sales_support_backend_python
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/sales_support
       - DATABASE_URL_SYNC=postgresql://postgres:postgres@db:5432/sales_support
@@ -45,6 +45,22 @@ services:
       - "please_keep_it=true"
       - "user=kento.tomatsu"
 
+  # Backend API (TypeScript + Mastra)
+  backend-typescript:
+    build:
+      context: ./backend-typescript
+      dockerfile: Dockerfile
+    container_name: kentomax_sales_support_backend_typescript
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NODE_ENV=production
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    labels:
+      - "please_keep_it=true"
+      - "user=kento.tomatsu"
+
   # Frontend
   frontend:
     build:
@@ -54,7 +70,7 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      - backend-python
     labels:
       - "please_keep_it=true"
       - "user=kento.tomatsu"
@@ -64,4 +80,3 @@ volumes:
     labels:
       - "please_keep_it=true"
       - "user=kento.tomatsu"
-
