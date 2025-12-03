@@ -374,7 +374,194 @@ DD_SERVICE=llm-salessupport-backend-typescript
 
 ---
 
-## 11. 参考リンク
+## 11. 導入時の変更パターン
+
+既存コードに LLM Observability を導入する際に、**何を変更する必要があるか**を整理する。
+
+---
+
+### Python版: 変更の難易度「低」
+
+#### ステップ1: 依存追加（追記のみ）
+
+```diff
+# requirements.txt
++ ddtrace>=3.11.0
+```
+
+#### ステップ2: 起動コマンド変更（1行変更）
+
+```diff
+# Dockerfile
+- CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
++ CMD ["ddtrace-run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+#### ステップ3: カスタム計装（追記のみ）
+
+既存の処理関数を **`with` 文で囲むだけ**。ロジックの変更は不要。
+
+```diff
+# 既存コード
+  async def process_message(self, user_message: str, session_data: SessionData):
++     from ddtrace.llmobs import LLMObs
++     
++     with LLMObs.agent(name="travel-support-agent", session_id=session_data.session_id) as span:
++         LLMObs.annotate(span=span, input_data={"user_message": user_message})
++         
+          # === 既存のロジックはそのまま ===
+          result = await self.agent_executor.ainvoke({...})
+          
++         LLMObs.annotate(span=span, output_data={"response": result})
++         
+          return result
+```
+
+#### Python版まとめ
+
+| 変更箇所 | 変更内容 | 難易度 |
+|---------|---------|-------|
+| `requirements.txt` | 1行追加 | ⭐ |
+| `Dockerfile` | コマンド変更 | ⭐ |
+| ビジネスロジック | `with`文で囲む（ロジック変更なし） | ⭐⭐ |
+| **設計変更** | **不要** | - |
+
+**結論: 既存コードを「囲む」だけ。設計変更は不要。**
+
+---
+
+### TypeScript版: 変更の難易度「中」
+
+#### ステップ1: 依存追加（追記のみ）
+
+```diff
+# package.json
+  "dependencies": {
++   "dd-trace": "^5.0.0",
+    ...
+  }
+```
+
+#### ステップ2: トレーサー初期化ファイル作成（新規ファイル）
+
+```typescript
+// src/tracer.ts（新規作成）
+import tracer from "dd-trace";
+
+tracer.init({
+  service: process.env.DD_SERVICE,
+  env: process.env.DD_ENV,
+});
+
+export const llmobs = tracer.llmobs;
+export default tracer;
+```
+
+#### ステップ3: エントリーポイント変更（インポート順序が重要）
+
+```diff
+# src/index.ts
++ // トレーサーは最初にインポート（他のモジュールより前）
++ import "./tracer";
++ import { llmobs } from "./tracer";
++
+  import { serve } from "@hono/node-server";
+  import { Hono } from "hono";
+  // ...
+```
+
+⚠️ **注意**: インポート順序を間違えると計装が効かない
+
+#### ステップ4: カスタム計装（構造変更が必要）
+
+既存の処理を **コールバック関数でラップ** する必要がある。
+**戻り値の扱いが変わる**ため、若干のリファクタリングが必要。
+
+```diff
+# 既存コード（Before）
+  chatRouter.post("/", async (c) => {
+    const { message } = await c.req.json();
+    
+    // 直接処理
+    const result = await travelAgent.generate(message);
+    
+    return c.json({ response: result.text });
+  });
+```
+
+```diff
+# 計装後（After）
+  chatRouter.post("/", async (c) => {
+    const { message } = await c.req.json();
+    
++   // コールバック関数でラップ
++   const response = await llmobs.trace(
++     { kind: "agent", name: "travel-support-agent" },
++     async (span) => {
++       llmobs.annotate(span, { inputData: { message } });
++       
+        const result = await travelAgent.generate(message);
+        
++       llmobs.annotate(span, { outputData: { response: result.text } });
++       
++       return { response: result.text };  // 戻り値を返す
++     }
++   );
++   
++   return c.json(response);  // コールバックの戻り値を使う
+-   return c.json({ response: result.text });
+  });
+```
+
+#### TypeScript版まとめ
+
+| 変更箇所 | 変更内容 | 難易度 |
+|---------|---------|-------|
+| `package.json` | 1行追加 | ⭐ |
+| `src/tracer.ts` | 新規ファイル作成 | ⭐⭐ |
+| `src/index.ts` | インポート順序変更 | ⭐⭐ |
+| ビジネスロジック | **コールバックでラップ（戻り値の扱い変更）** | ⭐⭐⭐ |
+| **設計変更** | **軽微なリファクタリングが必要** | - |
+
+**結論: コールバック構造への変更が必要。戻り値の扱いが変わる。**
+
+---
+
+### 比較表
+
+| 観点 | Python | TypeScript |
+|------|--------|------------|
+| **依存追加** | 1行 | 1行 |
+| **新規ファイル** | 不要 | `tracer.ts` 必要 |
+| **起動方法** | `ddtrace-run` 追加 | インポート順序変更 |
+| **ロジック変更** | `with`で囲むだけ | コールバックでラップ |
+| **戻り値の扱い** | 変更なし | **変更あり** |
+| **設計変更** | 不要 | 軽微 |
+| **総合難易度** | ⭐⭐ | ⭐⭐⭐ |
+
+---
+
+### なぜ TypeScript の方が難しいか
+
+1. **コールバック構造**
+   - Python: `with`文は既存コードを「囲む」だけ
+   - TypeScript: コールバック内に処理を移動する必要がある
+
+2. **戻り値の扱い**
+   - Python: 既存の`return`はそのまま使える
+   - TypeScript: コールバックから`return`し、その値を使う構造に変更
+
+3. **初期化タイミング**
+   - Python: `ddtrace-run`が自動で初期化
+   - TypeScript: 手動で初期化、インポート順序に注意
+
+4. **自動計装の範囲**
+   - Python: LangChain が自動で計装される
+   - TypeScript: Mastra は自動計装されない → 手動計装必須
+
+---
+
+## 12. 参考リンク
 
 - [Datadog LLM Observability SDK (Python)](https://docs.datadoghq.com/llm_observability/instrumentation/sdk?tab=python)
 - [Datadog LLM Observability SDK (Node.js)](https://docs.datadoghq.com/llm_observability/instrumentation/sdk?tab=nodejs)
