@@ -2,6 +2,7 @@
 from typing import Any, Dict, Optional
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
+from ddtrace.llmobs.decorators import tool as llmobs_tool
 
 
 # モック社内旅費規程
@@ -66,6 +67,7 @@ class PolicyCheckerTool(BaseTool):
     交通手段、交通費、宿泊費などを入力すると、OK/NG/注意の判定と詳細を返します。"""
     args_schema: type[BaseModel] = PolicyCheckInput
     
+    @llmobs_tool(name="policy_checker")
     def _run(
         self,
         transportation_type: Optional[str] = None,

@@ -10,7 +10,11 @@ export default defineConfig(({ mode }) => {
   const backendPort = backendType === 'typescript' ? 3000 : 8000
   const backendUrl = env.VITE_BACKEND_URL || `http://localhost:${backendPort}`
   
+  // フロントエンドポート: Python用は5173, TypeScript用は5174
+  const frontendPort = parseInt(env.VITE_PORT || (backendType === 'typescript' ? '5174' : '5173'))
+  
   console.log(`🔗 Backend: ${backendType} (${backendUrl})`)
+  console.log(`🌐 Frontend: http://localhost:${frontendPort}`)
   
   return {
     plugins: [react()],
@@ -20,7 +24,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 5173,
+      port: frontendPort,
       proxy: {
         '/api': {
           target: backendUrl,

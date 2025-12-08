@@ -102,21 +102,27 @@ VITE_BACKEND_URL=http://localhost:9000 npm run dev
 
 画面右上にバックエンドの種類がバッジで表示されます。
 
-## 📊 Datadog LLM Observability（Python版のみ）
+## 📊 Datadog LLM Observability
 
-Python バックエンドは Datadog LLM Observability に対応しています。
+Python版・TypeScript版ともに Datadog LLM Observability に対応しています。
+
+| バックエンド | ml_app名 | 対応状況 |
+|-------------|---------|---------|
+| Python | `python-llm-salessupport` | ✅ 自動計装 + 手動計装 |
+| TypeScript | `typescript-llm-salessupport` | ✅ 手動計装 |
 
 ```bash
+# Python版
 DD_API_KEY=xxx \
-DD_SERVICE=llm-salessupport-backend \
+DD_SERVICE=python-llm-salessupport \
 DD_ENV=dev \
 DD_LLMOBS_ENABLED=1 \
-DD_LLMOBS_ML_APP=llm-salessupport \
+DD_LLMOBS_ML_APP=python-llm-salessupport \
 DD_LLMOBS_AGENTLESS_ENABLED=1 \
 ddtrace-run uvicorn app.main:app --reload --port 8000
 ```
 
-詳細は [docs/llm-observability-implementation.md](docs/llm-observability-implementation.md) を参照。
+詳細は [docs/llm-observability.md](docs/llm-observability.md) を参照。
 
 ## 🐳 Docker Compose
 
@@ -150,9 +156,10 @@ docker-compose up -d backend-typescript
 
 ## 📚 ドキュメント
 
+- [アプリケーションロジック仕様](docs/application-logic.md)
+- [LLM Observability 実装ガイド](docs/llm-observability.md)
 - [AWS インフラ構成](docs/aws-infrastructure.md)
-- [Datadog 統合](docs/datadog-integration.md)
-- [LLM Observability 実装メモ](docs/llm-observability-implementation.md)
+- [Datadog APM 導入ガイド](docs/datadog-integration.md)
 
 ## ライセンス
 

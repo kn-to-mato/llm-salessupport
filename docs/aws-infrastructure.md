@@ -256,5 +256,5 @@ terraform/
 
 - [ ] Aurora PostgreSQL接続によるセッション永続化
 - [ ] HTTPS対応 (ACM証明書 + Route53)
-- [ ] Datadog LLM Observability統合
+- [x] Datadog LLM Observability統合 (**ローカル実装完了、ECSデプロイは未**)
 - [ ] Auto Scaling設定

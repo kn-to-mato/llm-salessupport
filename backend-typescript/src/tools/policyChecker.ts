@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { llmobs } from "../tracer";
 
 // 社内規程データ（モック）
 const COMPANY_POLICIES = {
@@ -40,37 +41,59 @@ export const policyCheckerTool = createTool({
     policy_summary: z.string(),
   }),
   execute: async ({ context }) => {
-    const violations: string[] = [];
-    const recommendations: string[] = [];
+    // === LLMObs: Tool スパンを手動計装 ===
+    return await llmobs.trace(
+      {
+        kind: "tool",
+        name: "policy_checker",
+      },
+      async (toolSpan) => {
+        llmobs.annotate(toolSpan, {
+          inputData: {
+            transportation_type: context.transportation_type,
+            accommodation_budget: context.accommodation_budget,
+            total_budget: context.total_budget,
+          },
+        });
 
-    // 交通手段チェック
-    if (context.is_green_car && !COMPANY_POLICIES.transportation.domestic.shinkansen.green_car) {
-      violations.push("グリーン車の利用は規程で認められていません");
-      recommendations.push("普通車指定席をご利用ください");
-    }
+        const violations: string[] = [];
+        const recommendations: string[] = [];
 
-    if (context.is_business_class && !COMPANY_POLICIES.transportation.domestic.airplane.business_class) {
-      violations.push("ビジネスクラスの利用は規程で認められていません");
-      recommendations.push("エコノミークラスをご利用ください");
-    }
+        // 交通手段チェック
+        if (context.is_green_car && !COMPANY_POLICIES.transportation.domestic.shinkansen.green_car) {
+          violations.push("グリーン車の利用は規程で認められていません");
+          recommendations.push("普通車指定席をご利用ください");
+        }
 
-    // 宿泊予算チェック
-    if (context.accommodation_budget && context.accommodation_budget > COMPANY_POLICIES.accommodation.max_per_night) {
-      violations.push(`宿泊費が上限（${COMPANY_POLICIES.accommodation.max_per_night}円/泊）を超えています`);
-      recommendations.push(`${COMPANY_POLICIES.accommodation.max_per_night}円以下の宿泊施設をお選びください`);
-    }
+        if (context.is_business_class && !COMPANY_POLICIES.transportation.domestic.airplane.business_class) {
+          violations.push("ビジネスクラスの利用は規程で認められていません");
+          recommendations.push("エコノミークラスをご利用ください");
+        }
 
-    const compliant = violations.length === 0;
-    const policy_summary = compliant
-      ? "すべての項目が社内規程に準拠しています"
-      : `${violations.length}件の規程違反があります`;
+        // 宿泊予算チェック
+        if (context.accommodation_budget && context.accommodation_budget > COMPANY_POLICIES.accommodation.max_per_night) {
+          violations.push(`宿泊費が上限（${COMPANY_POLICIES.accommodation.max_per_night}円/泊）を超えています`);
+          recommendations.push(`${COMPANY_POLICIES.accommodation.max_per_night}円以下の宿泊施設をお選びください`);
+        }
 
-    return {
-      compliant,
-      violations,
-      recommendations,
-      policy_summary,
-    };
+        const compliant = violations.length === 0;
+        const policy_summary = compliant
+          ? "すべての項目が社内規程に準拠しています"
+          : `${violations.length}件の規程違反があります`;
+
+        const result = {
+          compliant,
+          violations,
+          recommendations,
+          policy_summary,
+        };
+
+        llmobs.annotate(toolSpan, {
+          outputData: result,
+        });
+
+        return result;
+      }
+    );
   },
 });
-

@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { llmobs } from "../tracer";
 
 // ホテルオプションの型定義
 interface HotelOption {
@@ -72,17 +73,43 @@ export const hotelSearchTool = createTool({
     search_summary: z.string(),
   }),
   execute: async ({ context }) => {
-    let hotels = generateMockHotels(context.destination, context.check_in, context.check_out);
+    // === LLMObs: Tool スパンを手動計装 ===
+    return await llmobs.trace(
+      {
+        kind: "tool",
+        name: "hotel_search",
+      },
+      async (toolSpan) => {
+        llmobs.annotate(toolSpan, {
+          inputData: {
+            destination: context.destination,
+            check_in: context.check_in,
+            check_out: context.check_out,
+            max_budget: context.max_budget,
+          },
+        });
 
-    // 予算フィルタリング
-    if (context.max_budget) {
-      hotels = hotels.filter((h) => h.price_per_night <= context.max_budget!);
-    }
+        let hotels = generateMockHotels(context.destination, context.check_in, context.check_out);
 
-    return {
-      hotels,
-      search_summary: `${context.destination}周辺のホテルを${hotels.length}件見つけました`,
-    };
+        // 予算フィルタリング
+        if (context.max_budget) {
+          hotels = hotels.filter((h) => h.price_per_night <= context.max_budget!);
+        }
+
+        const result = {
+          hotels,
+          search_summary: `${context.destination}周辺のホテルを${hotels.length}件見つけました`,
+        };
+
+        llmobs.annotate(toolSpan, {
+          outputData: {
+            hotels_count: hotels.length,
+            search_summary: result.search_summary,
+          },
+        });
+
+        return result;
+      }
+    );
   },
 });
-

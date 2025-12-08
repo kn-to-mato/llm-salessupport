@@ -10,19 +10,40 @@
 API_URL="${API_URL:-http://localhost:8000}"
 SESSION_ID=""
 
+# バックエンド種別を判定（ポート番号から）
+if [[ "$API_URL" == *":8000"* ]]; then
+    BACKEND_TYPE="Python"
+    BACKEND_COLOR='\033[0;33m'  # Yellow for Python
+elif [[ "$API_URL" == *":3000"* ]]; then
+    BACKEND_TYPE="TypeScript"
+    BACKEND_COLOR='\033[0;36m'  # Cyan for TypeScript
+else
+    BACKEND_TYPE="Unknown"
+    BACKEND_COLOR='\033[0;37m'
+fi
+
 # 色付き出力
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# バックエンド表示
+echo ""
+echo -e "${BACKEND_COLOR}[${BACKEND_TYPE}]${NC} Backend: ${API_URL}"
+echo ""
 
 send_message() {
     local message="$1"
     local description="$2"
     
+    # メッセージにバックエンド種別のプレフィックスを付与
+    local prefixed_message="[${BACKEND_TYPE}] ${message}"
+    
     echo -e "${BLUE}-------------------------------------------${NC}"
     echo -e "${GREEN}[送信] ${description}${NC}"
-    echo -e "${YELLOW}メッセージ: ${message}${NC}"
+    echo -e "${YELLOW}メッセージ: ${prefixed_message}${NC}"
     echo ""
     
     if [ -z "$SESSION_ID" ]; then
@@ -31,7 +52,7 @@ send_message() {
             -H "Content-Type: application/json" \
             -d "{
                 \"user_id\": \"demo-user\",
-                \"message\": \"${message}\"
+                \"message\": \"${prefixed_message}\"
             }")
     else
         # 既存セッション継続
@@ -40,7 +61,7 @@ send_message() {
             -d "{
                 \"user_id\": \"demo-user\",
                 \"session_id\": \"${SESSION_ID}\",
-                \"message\": \"${message}\"
+                \"message\": \"${prefixed_message}\"
             }")
     fi
     
@@ -67,7 +88,7 @@ send_message() {
 test_all_tools() {
     echo ""
     echo -e "${GREEN}============================================================${NC}"
-    echo -e "${GREEN} パターン1: 全ツールが呼ばれるケース${NC}"
+    echo -e "${BACKEND_COLOR}[${BACKEND_TYPE}]${NC} ${GREEN}パターン1: 全ツールが呼ばれるケース${NC}"
     echo -e "${GREEN}============================================================${NC}"
     echo ""
     echo "期待されるツール呼び出し:"
@@ -95,7 +116,7 @@ test_all_tools() {
 test_skip_tool() {
     echo ""
     echo -e "${YELLOW}============================================================${NC}"
-    echo -e "${YELLOW} パターン2: 一部ツールがスキップされるケース (日帰り)${NC}"
+    echo -e "${BACKEND_COLOR}[${BACKEND_TYPE}]${NC} ${YELLOW}パターン2: 一部ツールがスキップされるケース (日帰り)${NC}"
     echo -e "${YELLOW}============================================================${NC}"
     echo ""
     echo "期待されるツール呼び出し:"
@@ -122,7 +143,7 @@ test_skip_tool() {
 test_incomplete() {
     echo ""
     echo -e "${YELLOW}============================================================${NC}"
-    echo -e "${YELLOW} パターン3: 条件不足でツールが呼ばれないケース${NC}"
+    echo -e "${BACKEND_COLOR}[${BACKEND_TYPE}]${NC} ${YELLOW}パターン3: 条件不足でツールが呼ばれないケース${NC}"
     echo -e "${YELLOW}============================================================${NC}"
     echo ""
     echo "期待されるツール呼び出し:"
@@ -220,7 +241,7 @@ echo "Datadog LLM Observability で確認:"
 echo "  https://app.datadoghq.com/llm/traces"
 echo ""
 echo "フィルタ:"
-echo "  - ml_app:python-llm-salessupport-demo"
+echo "  - ml_app:llm-salessupport"
 echo "  - env:dev"
 echo ""
 

@@ -190,13 +190,24 @@ aws ecs update-service \
 
 ## 現在のステータス
 
+### ローカル開発環境 ✅
+
 - [x] Step 1: ddtrace パッケージの追加 (2024-12-02)
 - [x] Step 2: Dockerfile の CMD を変更 (2024-12-02)
+- [x] ローカルでの動作確認完了 (2024-12-08)
+- [x] Python版: LLM Observability 対応
+- [x] TypeScript版: LLM Observability 対応
+- [x] カスタムタグ機能実装（会社名等）
+
+### AWS ECS on Fargate 🚧
+
 - [ ] Step 3: 環境変数の設定
 - [ ] Step 4: Secrets ManagerにAPI Key保存
 - [ ] Step 5: ECSタスク定義の更新
 - [ ] Step 6: Dockerイメージのビルド＆プッシュ
 - [ ] Step 7: ECSサービスの更新
+
+**Note**: ローカルでの動作確認は完了。AWS ECS on Fargateへのデプロイは未実施。
 
 ---
 

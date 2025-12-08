@@ -60,6 +60,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     message: str
     user_id: str = "demo-user-1"
+    company_name: Optional[str] = Field(None, description="会社名（LLMObsタグ用）")
 
 
 class ChatResponse(BaseModel):

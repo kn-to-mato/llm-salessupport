@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 import uuid
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
+from ddtrace.llmobs.decorators import tool as llmobs_tool
 
 
 class PlanGeneratorInput(BaseModel):
@@ -24,6 +25,7 @@ class PlanGeneratorTool(BaseTool):
     日帰りの場合はreturn_dateを省略できます。"""
     args_schema: type[BaseModel] = PlanGeneratorInput
     
+    @llmobs_tool(name="plan_generator")
     def _run(
         self,
         departure_location: str,

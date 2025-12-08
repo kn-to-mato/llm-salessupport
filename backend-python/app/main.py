@@ -1,7 +1,11 @@
 """営業出張サポートAI - メインアプリケーション"""
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+load_dotenv()  # .env ファイルを最初にロード
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +20,15 @@ settings = get_settings()
 # ロギング初期化
 setup_logging()
 logger = get_logger(__name__)
+
+# === Datadog LLM Observability 初期化 ===
+if os.getenv("DD_LLMOBS_ENABLED") == "1":
+    from ddtrace.llmobs import LLMObs
+    LLMObs.enable(
+        ml_app=os.getenv("DD_LLMOBS_ML_APP", "python-llm-salessupport"),
+        agentless_enabled=os.getenv("DD_LLMOBS_AGENTLESS_ENABLED") == "1",
+    )
+    logger.info("llmobs_enabled", ml_app=os.getenv("DD_LLMOBS_ML_APP"))
 
 
 @asynccontextmanager

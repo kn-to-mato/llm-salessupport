@@ -85,6 +85,7 @@ async def send_message(request: ChatRequest) -> ChatResponse:
         result = await agent.process_message(
             user_message=request.message,
             session_data=session,
+            company_name=request.company_name,
         )
         agent_duration = time.time() - agent_start
         

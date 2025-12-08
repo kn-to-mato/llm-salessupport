@@ -1,4 +1,7 @@
-// トレーサーは最初にインポート（他のモジュールより前）
+// dotenv を最初にインポート（環境変数を先に読み込む）
+import "dotenv/config";
+
+// トレーサーは dotenv の後、他のモジュールより前にインポート
 import "./tracer";
 import tracer, { APP_VERSION, llmobs } from "./tracer";
 
@@ -7,7 +10,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { chatRouter } from "./routes";
-import "dotenv/config";
 
 const app = new Hono();
 

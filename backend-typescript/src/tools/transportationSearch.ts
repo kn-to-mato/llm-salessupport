@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { llmobs } from "../tracer";
 
 // 交通オプションの型定義
 interface TransportationOption {
@@ -104,17 +105,43 @@ export const transportationSearchTool = createTool({
     search_summary: z.string(),
   }),
   execute: async ({ context }) => {
-    const options = generateMockTransportation(
-      context.origin,
-      context.destination,
-      context.date,
-      context.preferred_transport
-    );
+    // === LLMObs: Tool スパンを手動計装 ===
+    return await llmobs.trace(
+      {
+        kind: "tool",
+        name: "transportation_search",
+      },
+      async (toolSpan) => {
+        llmobs.annotate(toolSpan, {
+          inputData: {
+            origin: context.origin,
+            destination: context.destination,
+            date: context.date,
+            preferred_transport: context.preferred_transport,
+          },
+        });
 
-    return {
-      options,
-      search_summary: `${context.origin}から${context.destination}への交通手段を${options.length}件見つけました`,
-    };
+        const options = generateMockTransportation(
+          context.origin,
+          context.destination,
+          context.date,
+          context.preferred_transport
+        );
+
+        const result = {
+          options,
+          search_summary: `${context.origin}から${context.destination}への交通手段を${options.length}件見つけました`,
+        };
+
+        llmobs.annotate(toolSpan, {
+          outputData: {
+            options_count: options.length,
+            search_summary: result.search_summary,
+          },
+        });
+
+        return result;
+      }
+    );
   },
 });
-

@@ -2,6 +2,7 @@
 from typing import Any, Dict, List, Optional
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
+from ddtrace.llmobs.decorators import tool as llmobs_tool
 
 
 # モック交通データ
@@ -146,6 +147,7 @@ class TransportationSearchTool(BaseTool):
     新幹線や飛行機の時刻表、料金などを取得できます。"""
     args_schema: type[BaseModel] = TransportationSearchInput
     
+    @llmobs_tool(name="transportation_search")
     def _run(
         self,
         departure: str,
