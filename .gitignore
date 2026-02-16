@@ -69,3 +69,8 @@ htmlcov/
 # Docker
 docker-compose.override.yml
 
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+

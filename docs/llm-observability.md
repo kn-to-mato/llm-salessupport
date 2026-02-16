@@ -12,6 +12,7 @@ Datadog LLM Observability の実装方法をまとめたドキュメント。
 |-------------|--------------|---------------|--------|
 | Python | LangChain + FastAPI | `python-langchain-v1` | `python-llm-salessupport` |
 | TypeScript | Mastra + Hono | `typescript-mastra-v1` | `typescript-llm-salessupport` |
+| Python (Vertex AI) | Vertex AI (Gemini) + FastAPI | `python-vertex-v1` | `python-llm-salessupport-vertex` |
 
 ### ツール一覧
 
@@ -64,12 +65,23 @@ DD_LLMOBS_ML_APP=typescript-llm-salessupport
 DD_LLMOBS_AGENTLESS_ENABLED=1
 ```
 
+### Vertex版（Python + Vertex AI）
+```bash
+DD_API_KEY=<your-api-key>
+DD_SERVICE=kentomax-sales-support-backend-vertex
+DD_ENV=dev
+DD_LLMOBS_ENABLED=1
+DD_LLMOBS_ML_APP=python-llm-salessupport-vertex
+DD_LLMOBS_AGENTLESS_ENABLED=1
+```
+
 ### Datadogで確認
 ```
 https://app.datadoghq.com/llm/traces
 フィルタ: 
   - Python版: ml_app:python-llm-salessupport
   - TypeScript版: ml_app:typescript-llm-salessupport
+  - Vertex版: ml_app:python-llm-salessupport-vertex
 ```
 
 ---
@@ -87,13 +99,16 @@ https://app.datadoghq.com/llm/traces
 
 ### 本プロジェクトでの方針
 
-| 処理 | Python | TypeScript |
-|------|--------|------------|
-| LangChain/OpenAI呼び出し | **自動計装** | N/A |
-| Agent全体 | **手動計装** | **手動計装** |
-| Workflow | **手動計装** | **手動計装** |
-| Tool | **手動計装**（デコレータ） | **手動計装**（llmobs.trace） |
-| LLM呼び出し | **自動計装** | **手動計装** |
+| 処理 | Python (LangChain) | TypeScript (Mastra) | Python (Vertex AI) |
+|------|------------------|-------------------|-------------------|
+| LangChain/OpenAI呼び出し | **自動計装** | N/A | N/A |
+| Vertex AI SDK 呼び出し | N/A | N/A | **自動計装**（ddtrace + Vertex AI integration） |
+| Agent全体 | **手動計装**（LLMObs.agent） | **手動計装**（llmobs.trace kind=agent） | なし（現状） |
+| Workflow | **手動計装**（LLMObs.workflow） | **手動計装**（llmobs.trace kind=workflow） | なし（現状） |
+| Tool | **手動計装**（@llmobs_tool） | **手動計装**（llmobs.trace kind=tool） | なし（現状） |
+| LLM呼び出し | **自動計装**（LangChain/OpenAI） | **手動計装**（llmobs.trace kind=llm） | **自動計装**（Vertex AI SDK） |
+
+**補足（Vertex版）**: Vertex版は「まず auto instrumentation のみ」で導入しています。Python/LangChain版のように階層スパン（Agent/Workflow/Tool）を作りたい場合は、`backend-python-vertex` 側に `LLMObs.agent/workflow` 等の手動計装を追加していく方針になります。
 
 ---
 
@@ -102,18 +117,16 @@ https://app.datadoghq.com/llm/traces
 ### 4.1 初期化
 
 ```python
-# app/main.py
-from dotenv import load_dotenv
+# backend-python/app/main.py
+import os
 from ddtrace.llmobs import LLMObs
 
-load_dotenv()
-
-# LLMObs 明示的初期化
-LLMObs.enable(
-    ml_app=settings.dd_llmobs_ml_app,
-    api_key=settings.dd_api_key,
-    agentless_enabled=settings.dd_llmobs_agentless_enabled,
-)
+if os.getenv("DD_LLMOBS_ENABLED") == "1":
+    # LLMObs 明示的初期化（agentless の場合は DD_API_KEY が必要）
+    LLMObs.enable(
+        ml_app=os.getenv("DD_LLMOBS_ML_APP", "python-llm-salessupport"),
+        agentless_enabled=os.getenv("DD_LLMOBS_AGENTLESS_ENABLED") == "1",
+    )
 ```
 
 ### 4.2 Tool計装（デコレータ）

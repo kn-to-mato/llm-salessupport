@@ -9,8 +9,13 @@
 
 set -e
 
-PYTHON_URL="http://localhost:8000"
-TS_URL="http://localhost:3000"
+# Base URLs (override with environment variables)
+# - PYTHON_URL: Python backend base URL (default: http://localhost:8000)
+# - TS_URL: TypeScript backend base URL (default: http://localhost:3000)
+# - CUSTOM_URL: Any backend base URL for "custom" mode
+PYTHON_URL="${PYTHON_URL:-http://localhost:8000}"
+TS_URL="${TS_URL:-http://localhost:3000}"
+CUSTOM_URL="${CUSTOM_URL:-}"
 
 # 色付き出力
 GREEN='\033[0;32m'
@@ -41,12 +46,12 @@ log_test() {
 
 log_success() {
     echo -e "${GREEN}✓ 成功: $1${NC}"
-    ((PASSED++))
+    ((PASSED+=1))
 }
 
 log_failure() {
     echo -e "${RED}✗ 失敗: $1${NC}"
-    ((FAILED++))
+    ((FAILED+=1))
 }
 
 send_chat() {
@@ -311,6 +316,7 @@ run_tests_for_backend() {
 # ============================================================
 main() {
     local mode="${1:-both}"
+    local override_url="${2:-}"
     
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════════════╗${NC}"
@@ -321,12 +327,39 @@ main() {
     PASSED=0
     FAILED=0
     
+    # Optional: allow passing an override URL as 2nd argument for single-backend modes
+    # Examples:
+    #   ./scripts/comprehensive-test.sh python http://localhost:8001
+    #   ./scripts/comprehensive-test.sh typescript https://example.run.app
+    if [ -n "$override_url" ]; then
+        case "$mode" in
+            python)
+                PYTHON_URL="$override_url"
+                ;;
+            typescript|ts)
+                TS_URL="$override_url"
+                ;;
+            custom)
+                CUSTOM_URL="$override_url"
+                ;;
+        esac
+    fi
+
     case "$mode" in
         python)
             run_tests_for_backend "$PYTHON_URL" "Python"
             ;;
         typescript|ts)
             run_tests_for_backend "$TS_URL" "TypeScript"
+            ;;
+        custom)
+            if [ -z "$CUSTOM_URL" ]; then
+                echo "CUSTOM_URL is not set."
+                echo "Usage: $0 custom <base_url>"
+                echo "Example: $0 custom https://your-cloud-run-url"
+                exit 1
+            fi
+            run_tests_for_backend "$CUSTOM_URL" "Custom"
             ;;
         both)
             run_tests_for_backend "$PYTHON_URL" "Python"
@@ -359,13 +392,17 @@ main() {
             done
             ;;
         *)
-            echo "Usage: $0 {python|typescript|ts|both|loop}"
+            echo "Usage: $0 {python|typescript|ts|custom|both|loop} [base_url]"
             echo ""
             echo "  python     - Python (LangChain) バックエンドのみテスト"
             echo "  typescript - TypeScript (Mastra) バックエンドのみテスト"
             echo "  ts         - typescript のエイリアス"
+            echo "  custom     - 任意URLのバックエンドをテスト（例: Cloud Run）"
             echo "  both       - 両方のバックエンドをテスト（デフォルト）"
             echo "  loop       - 3分ごとにテストをループ実行"
+            echo ""
+            echo "Environment overrides:"
+            echo "  PYTHON_URL=http://...  TS_URL=http://...  CUSTOM_URL=http://..."
             exit 1
             ;;
     esac

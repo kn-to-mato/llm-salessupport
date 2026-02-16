@@ -1,0 +1,13 @@
+project_id      = "mcse-sandbox"
+region          = "asia-northeast1"
+
+# Phase control:
+# 1) First apply: deploy_cloud_run=false (default) to create Artifact Registry + IAM
+# 2) Push image, then set deploy_cloud_run=true and container_image
+deploy_cloud_run = false
+
+# After creating Artifact Registry and pushing the image, set the full image URI here.
+# Example:
+# container_image = "asia-northeast1-docker.pkg.dev/mcse-sandbox/kentomax-sales-support/backend-python-vertex:latest"
+container_image = "REPLACE_ME"
+

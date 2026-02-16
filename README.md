@@ -2,6 +2,7 @@
 
 営業担当者の出張計画をAIがサポートするデモアプリケーションです。
 同じ機能を **Python + LangChain** と **TypeScript + Mastra** の2つの技術スタックで実装しています。
+加えて、**Python + Vertex AI (Gemini)** のバックエンド（`backend-python-vertex/`）も追加しています。
 
 ## 🎯 主な機能
 
@@ -17,6 +18,7 @@
 llm-salessupport/
 ├── frontend/              # React フロントエンド（共通）
 ├── backend-python/        # Python + LangChain バックエンド
+├── backend-python-vertex/  # Python + Vertex AI (Gemini) バックエンド
 ├── backend-typescript/    # TypeScript + Mastra バックエンド
 ├── docs/                  # ドキュメント
 └── scripts/               # ユーティリティスクリプト
@@ -104,12 +106,13 @@ VITE_BACKEND_URL=http://localhost:9000 npm run dev
 
 ## 📊 Datadog LLM Observability
 
-Python版・TypeScript版ともに Datadog LLM Observability に対応しています。
+Python版・TypeScript版・Vertex版ともに Datadog LLM Observability に対応しています。
 
 | バックエンド | ml_app名 | 対応状況 |
 |-------------|---------|---------|
 | Python | `python-llm-salessupport` | ✅ 自動計装 + 手動計装 |
 | TypeScript | `typescript-llm-salessupport` | ✅ 手動計装 |
+| Python (Vertex AI) | `python-llm-salessupport-vertex` | ✅ 自動計装（ddtrace-run, Vertex AI SDK） / ⏳ 手動計装は未（現状） |
 
 ```bash
 # Python版
@@ -122,7 +125,8 @@ DD_LLMOBS_AGENTLESS_ENABLED=1 \
 ddtrace-run uvicorn app.main:app --reload --port 8000
 ```
 
-詳細は [docs/llm-observability.md](docs/llm-observability.md) を参照。
+Vertex版（Cloud Run + Secret Manager）の詳細は [docs/gcp-infrastructure.md](docs/gcp-infrastructure.md) を参照。
+詳細は [docs/llm-observability.md](docs/llm-observability.md) も参照。
 
 ## 🐳 Docker Compose
 
@@ -160,6 +164,7 @@ docker-compose up -d backend-typescript
 - [LLM Observability 実装ガイド](docs/llm-observability.md)
 - [AWS インフラ構成](docs/aws-infrastructure.md)
 - [Datadog APM 導入ガイド](docs/datadog-integration.md)
+- [GCP インフラ構成（Cloud Run + Vertex AI）](docs/gcp-infrastructure.md)
 
 ## ライセンス
 

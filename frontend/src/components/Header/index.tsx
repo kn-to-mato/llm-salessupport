@@ -8,6 +8,7 @@ interface HeaderProps {
 
 // バックエンドの種類を取得
 const BACKEND_TYPE = import.meta.env.VITE_BACKEND || 'python';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 const backendInfo = {
   python: {
@@ -16,6 +17,13 @@ const backendInfo = {
     textColor: 'text-blue-400',
     borderColor: 'border-blue-500/30',
     icon: '🐍',
+  },
+  pythonVertex: {
+    label: 'Python + Vertex AI',
+    color: 'from-blue-500 to-emerald-500',
+    textColor: 'text-emerald-400',
+    borderColor: 'border-emerald-500/30',
+    icon: '🧠',
   },
   typescript: {
     label: 'TypeScript + Mastra',
@@ -27,7 +35,15 @@ const backendInfo = {
 };
 
 export function Header({ onReset, sessionId }: HeaderProps) {
-  const backend = backendInfo[BACKEND_TYPE as keyof typeof backendInfo] || backendInfo.python;
+  const looksLikeVertexBackend =
+    BACKEND_TYPE === 'python' &&
+    !!BACKEND_URL &&
+    /(a\.run\.app|backend-vertex|vertex)/i.test(BACKEND_URL);
+
+  const backendKey = looksLikeVertexBackend ? 'pythonVertex' : BACKEND_TYPE;
+  const backend =
+    backendInfo[backendKey as keyof typeof backendInfo] ||
+    backendInfo.python;
 
   return (
     <header className="glass-panel border-b border-dark-700/50">
