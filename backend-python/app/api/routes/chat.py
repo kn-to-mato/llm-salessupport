@@ -1,11 +1,19 @@
 """チャットAPIエンドポイント"""
+import os
 import time
+from contextlib import nullcontext
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import ChatRequest, ChatResponse, Message
 from app.services.session_manager import session_manager
 from app.agents import TravelSupportAgent
 from app.logging_config import get_logger
+
+LLMObs = None
+if os.getenv("DD_LLMOBS_ENABLED") == "1":
+    # LLM Observability is enabled in app.main (LLMObs.enable).
+    # Here we only start a root span with the session_id for session tracking.
+    from ddtrace.llmobs import LLMObs  # type: ignore
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = get_logger(__name__)
@@ -57,119 +65,125 @@ async def send_message(request: ChatRequest) -> ChatResponse:
             existing_message_count=len(session.messages),
             existing_plan_count=len(session.plans),
         )
-        
-        # ユーザーメッセージを追加
-        user_message = Message(
-            role="user",
-            type="text",
-            content=request.message,
+
+        llmobs_root_ctx = (
+            LLMObs.workflow(name="chat_request", session_id=session.session_id)
+            if LLMObs
+            else nullcontext()
         )
-        session_manager.update_session(
-            session.session_id,
-            add_message=user_message,
-        )
-        logger.debug(
-            "user_message_added",
-            session_id=session.session_id,
-            message_role="user",
-        )
-        
-        # エージェントで処理
-        logger.info(
-            "agent_processing_start",
-            session_id=session.session_id,
-        )
-        
-        agent_start = time.time()
-        agent = get_agent()
-        result = await agent.process_message(
-            user_message=request.message,
-            session_data=session,
-            company_name=request.company_name,
-        )
-        agent_duration = time.time() - agent_start
-        
-        logger.info(
-            "agent_processing_complete",
-            session_id=session.session_id,
-            duration_ms=round(agent_duration * 1000, 2),
-            response_length=len(result.get("response", "")),
-        )
-        
-        # 条件を更新
-        updated_conditions = result.get("updated_conditions")
-        if updated_conditions:
-            logger.debug(
-                "conditions_updated",
-                session_id=session.session_id,
-                departure_location=updated_conditions.departure_location,
-                destination=updated_conditions.destination,
-                depart_date=updated_conditions.depart_date,
-                return_date=updated_conditions.return_date,
-                budget=updated_conditions.budget,
-                preferred_transportation=updated_conditions.preferred_transportation,
+        with llmobs_root_ctx:
+            # ユーザーメッセージを追加
+            user_message = Message(
+                role="user",
+                type="text",
+                content=request.message,
             )
             session_manager.update_session(
                 session.session_id,
-                conditions=updated_conditions,
+                add_message=user_message,
             )
-        
-        # process_message の結果からプランを取得
-        # AgentExecutor が plan_generator を呼んだ場合、結果に含まれる
-        plans = result.get("plans", [])
-        
-        if plans:
-            session_manager.add_plans(session.session_id, plans)
-            
-            logger.info(
-                "plans_from_agent",
+            logger.debug(
+                "user_message_added",
                 session_id=session.session_id,
-                plan_count=len(plans),
+                message_role="user",
             )
-            
-            for plan in plans:
+
+            # エージェントで処理
+            logger.info(
+                "agent_processing_start",
+                session_id=session.session_id,
+            )
+
+            agent_start = time.time()
+            agent = get_agent()
+            result = await agent.process_message(
+                user_message=request.message,
+                session_data=session,
+                company_name=request.company_name,
+            )
+            agent_duration = time.time() - agent_start
+
+            logger.info(
+                "agent_processing_complete",
+                session_id=session.session_id,
+                duration_ms=round(agent_duration * 1000, 2),
+                response_length=len(result.get("response", "")),
+            )
+
+            # 条件を更新
+            updated_conditions = result.get("updated_conditions")
+            if updated_conditions:
                 logger.debug(
-                    "plan_detail",
+                    "conditions_updated",
                     session_id=session.session_id,
-                    plan_id=getattr(plan, 'plan_id', None) or getattr(plan, 'id', 'unknown'),
-                    label=getattr(plan, 'label', None) or getattr(plan, 'name', 'unknown'),
-                    destination=plan.summary.destination,
-                    estimated_total=plan.summary.estimated_total,
-                    policy_status=plan.summary.policy_status,
+                    departure_location=updated_conditions.departure_location,
+                    destination=updated_conditions.destination,
+                    depart_date=updated_conditions.depart_date,
+                    return_date=updated_conditions.return_date,
+                    budget=updated_conditions.budget,
+                    preferred_transportation=updated_conditions.preferred_transportation,
                 )
-        
-        # アシスタントメッセージを追加
-        assistant_message = Message(
-            role="assistant",
-            type="plan_cards" if plans else "text",
-            content=result.get("response", ""),
-        )
-        session_manager.update_session(
-            session.session_id,
-            add_message=assistant_message,
-        )
-        
-        logger.debug(
-            "assistant_message_added",
-            session_id=session.session_id,
-            message_type=assistant_message.type,
-            has_plans=len(plans) > 0,
-        )
-        
-        total_duration = time.time() - start_time
-        logger.info(
-            "chat_response_sent",
-            session_id=session.session_id,
-            total_duration_ms=round(total_duration * 1000, 2),
-            plan_count=len(plans),
-            response_type=assistant_message.type,
-        )
-        
-        return ChatResponse(
-            session_id=session.session_id,
-            messages=[assistant_message],
-            plans=plans,
-        )
+                session_manager.update_session(
+                    session.session_id,
+                    conditions=updated_conditions,
+                )
+
+            # process_message の結果からプランを取得
+            # AgentExecutor が plan_generator を呼んだ場合、結果に含まれる
+            plans = result.get("plans", [])
+
+            if plans:
+                session_manager.add_plans(session.session_id, plans)
+
+                logger.info(
+                    "plans_from_agent",
+                    session_id=session.session_id,
+                    plan_count=len(plans),
+                )
+
+                for plan in plans:
+                    logger.debug(
+                        "plan_detail",
+                        session_id=session.session_id,
+                        plan_id=getattr(plan, 'plan_id', None) or getattr(plan, 'id', 'unknown'),
+                        label=getattr(plan, 'label', None) or getattr(plan, 'name', 'unknown'),
+                        destination=plan.summary.destination,
+                        estimated_total=plan.summary.estimated_total,
+                        policy_status=plan.summary.policy_status,
+                    )
+
+            # アシスタントメッセージを追加
+            assistant_message = Message(
+                role="assistant",
+                type="plan_cards" if plans else "text",
+                content=result.get("response", ""),
+            )
+            session_manager.update_session(
+                session.session_id,
+                add_message=assistant_message,
+            )
+
+            logger.debug(
+                "assistant_message_added",
+                session_id=session.session_id,
+                message_type=assistant_message.type,
+                has_plans=len(plans) > 0,
+            )
+
+            total_duration = time.time() - start_time
+            logger.info(
+                "chat_response_sent",
+                session_id=session.session_id,
+                total_duration_ms=round(total_duration * 1000, 2),
+                plan_count=len(plans),
+                response_type=assistant_message.type,
+            )
+
+            return ChatResponse(
+                session_id=session.session_id,
+                messages=[assistant_message],
+                plans=plans,
+            )
         
     except Exception as e:
         logger.error(

@@ -44,6 +44,12 @@ export function Header({ onReset, sessionId }: HeaderProps) {
   const backend =
     backendInfo[backendKey as keyof typeof backendInfo] ||
     backendInfo.python;
+  const backendShortLabel =
+    backendKey === 'pythonVertex'
+      ? 'Vertex'
+      : backendKey === 'typescript'
+        ? 'TS'
+        : 'LangChain';
 
   return (
     <header className="glass-panel border-b border-dark-700/50">
@@ -67,6 +73,8 @@ export function Header({ onReset, sessionId }: HeaderProps) {
                   backend.textColor
                 )}>
                   <span>{backend.icon}</span>
+                  {/* Keep badge obvious even on small viewports */}
+                  <span className="sm:hidden">{backendShortLabel}</span>
                   <span className="hidden sm:inline">{backend.label}</span>
                 </span>
               </div>

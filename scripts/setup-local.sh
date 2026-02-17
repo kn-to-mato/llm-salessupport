@@ -14,7 +14,7 @@ docker-compose -f docker-compose.dev.yml up -d
 # 2. バックエンドセットアップ
 echo ""
 echo "🐍 バックエンドのセットアップ..."
-cd backend
+cd backend-python
 
 if [ ! -d "venv" ]; then
     python3 -m venv venv
@@ -23,11 +23,10 @@ fi
 source venv/bin/activate
 pip install -r requirements.txt
 
-# .envファイルがなければサンプルからコピー
+# .envファイルがなければ注意（鍵は書かない）
 if [ ! -f ".env" ]; then
     echo "⚠️  .envファイルが見つかりません。"
-    echo "   backend/.env.example を参考に backend/.env を作成してください。"
-    echo "   OPENAI_API_KEY の設定が必要です。"
+    echo "   backend-python/.env を作成し、OPENAI_API_KEY 等を設定してください。"
 fi
 
 cd ..
@@ -43,8 +42,8 @@ echo ""
 echo "✅ セットアップ完了！"
 echo ""
 echo "📝 次のステップ:"
-echo "   1. backend/.env を作成し、OPENAI_API_KEY を設定"
-echo "   2. バックエンド起動: cd backend && source venv/bin/activate && uvicorn app.main:app --reload"
+echo "   1. backend-python/.env を確認し、OPENAI_API_KEY を設定"
+echo "   2. バックエンド起動: cd backend-python && source venv/bin/activate && ddtrace-run uvicorn app.main:app --reload --port 8000"
 echo "   3. フロントエンド起動: cd frontend && npm run dev"
 echo ""
 echo "🌐 アクセス:"

@@ -42,13 +42,14 @@ send_requests() {
         local message="${MESSAGES[$msg_index]}"
         
         # リクエスト送信
+        local payload=$(jq -n \
+            --arg message "$message" \
+            --arg user_id "test-user-$i" \
+            --arg company_name "$company" \
+            '{message: $message, user_id: $user_id, company_name: $company_name}')
         local response=$(curl -s -X POST "$API_URL/api/chat" \
             -H "Content-Type: application/json" \
-            -d "{
-                \"message\": \"$message\",
-                \"user_id\": \"test-user-$i\",
-                \"company_name\": \"$company\"
-            }" 2>/dev/null)
+            -d "$payload" 2>/dev/null)
         
         # レスポンスチェック
         if echo "$response" | grep -q "session_id"; then

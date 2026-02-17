@@ -28,7 +28,7 @@ http://kentomax-sales-support-alb-733711893.ap-northeast-1.elb.amazonaws.com
 | kentomax_sales-support-ecs-sg | `sg-0c1eaf860431be681` | ECSタスク用。ALBからのみアクセス可 |
 
 **セキュリティルール:**
-- ALB SG: ポート80を特定IP (209.249.214.170/32) からのみ許可
+- ALB SG: ポート80を特定IP (/32) からのみ許可（例: `209.249.214.170/32`, `14.8.38.226/32`）
 - ECS SG: ALB SGからポート80, 8000を許可
 
 ### ECS

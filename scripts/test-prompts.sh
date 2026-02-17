@@ -48,21 +48,23 @@ send_message() {
     
     if [ -z "$SESSION_ID" ]; then
         # 新規セッション
+        payload=$(jq -n \
+            --arg user_id "demo-user" \
+            --arg message "$prefixed_message" \
+            '{user_id: $user_id, message: $message}')
         response=$(curl -s -X POST "${API_URL}/api/chat" \
             -H "Content-Type: application/json" \
-            -d "{
-                \"user_id\": \"demo-user\",
-                \"message\": \"${prefixed_message}\"
-            }")
+            -d "$payload")
     else
         # 既存セッション継続
+        payload=$(jq -n \
+            --arg user_id "demo-user" \
+            --arg session_id "$SESSION_ID" \
+            --arg message "$prefixed_message" \
+            '{user_id: $user_id, session_id: $session_id, message: $message}')
         response=$(curl -s -X POST "${API_URL}/api/chat" \
             -H "Content-Type: application/json" \
-            -d "{
-                \"user_id\": \"demo-user\",
-                \"session_id\": \"${SESSION_ID}\",
-                \"message\": \"${prefixed_message}\"
-            }")
+            -d "$payload")
     fi
     
     # セッションIDを抽出

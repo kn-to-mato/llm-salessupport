@@ -14,6 +14,35 @@
 
 ---
 
+## デモ用URL（ブラウザから呼び出す）
+
+### LangChain版（AWS / ALB）
+
+- **URL**: `http://kentomax-sales-support-alb-733711893.ap-northeast-1.elb.amazonaws.com`
+
+注: ALBのSGが **IP/32制限** になっているため、アクセスできない場合は `docs/aws-infrastructure.md` のSG情報（`kentomax_sales-support-alb-sg`）に従って、許可IPを更新してください（0.0.0.0/0は禁止）。
+
+### Vertex版（バックエンド: Cloud Run / フロント: ローカル）
+
+- **Cloud Run backend URL**: `https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.run.app`
+- **ローカルフロントURL**: `http://localhost:5173`
+
+ローカル起動コマンド（フロントのみ）:
+
+```bash
+cd frontend
+npm install
+VITE_BACKEND_URL=https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.run.app npm run dev
+```
+
+動作確認（任意）:
+
+```bash
+./scripts/comprehensive-test.sh custom "https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.run.app"
+```
+
+---
+
 ## TODO（未着手）
 
 - [ ] Datadog LLM Observability（auto instrumentation）を Cloud Run の `backend-python-vertex` に追加

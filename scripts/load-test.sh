@@ -43,9 +43,10 @@ scenario_2tools_transport() {
     
     MESSAGE="名古屋に日帰り出張したいのですが、新幹線で行く場合の規程と便を教えてください"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-2tools-transport" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-2tools-transport\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error: $RESPONSE"
@@ -62,9 +63,10 @@ scenario_2tools_hotel() {
     
     MESSAGE="大阪出張で1泊する場合、宿泊規程と梅田周辺のホテルを教えてください"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-2tools-hotel" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-2tools-hotel\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error: $RESPONSE"
@@ -81,9 +83,10 @@ scenario_3tools() {
     
     MESSAGE="来週福岡に2泊3日で出張します。東京から飛行機で行って、博多駅近くのホテルに泊まりたいです。規程内で収まりますか？"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-3tools" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-3tools\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error: $RESPONSE"
@@ -100,9 +103,10 @@ scenario_3tools_extract() {
     
     MESSAGE="12月15日から17日まで札幌出張。予算は8万円で、できれば千歳空港からアクセスの良いホテルがいいです"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-3tools-extract" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-3tools-extract\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error: $RESPONSE"
@@ -119,9 +123,10 @@ scenario_4tools_full() {
     
     MESSAGE="来月10日から12日まで、東京から広島に出張します。2泊3日で、新幹線のぞみを使って、広島駅から徒歩10分以内のビジネスホテルに泊まりたいです。予算は6万円以内で規程に収まるプランを提案してください"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-4tools-full" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-4tools-full\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error: $RESPONSE"
@@ -138,9 +143,10 @@ scenario_4tools_plan() {
     
     MESSAGE="急ぎで仙台出張のプランを作ってください。明後日から1泊2日、東京駅発で新幹線はやぶさ希望。ホテルは仙台駅近くで朝食付き。予算4万円で最適なプランを出してください"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-4tools-plan" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-4tools-plan\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "plans"; then
         log_success "Response received with plans!"
@@ -158,9 +164,10 @@ scenario_complex() {
     
     MESSAGE="名古屋支社との会議のため、12月20日から22日まで2泊3日で出張します。東京から新幹線で行き、名古屋駅から徒歩圏内のホテルに宿泊希望。会議が遅くなる可能性があるので朝食付きで。予算は5万円、規程内で最もコスパの良いプランをお願いします"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-complex" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-complex\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error"
@@ -176,9 +183,10 @@ scenario_simple_policy() {
     
     MESSAGE="国内出張の日当と宿泊費の上限を教えてください"
     
+    PAYLOAD=$(jq -n --arg message "$MESSAGE" --arg user_id "test-simple-policy" '{message:$message, user_id:$user_id}')
     RESPONSE=$(curl -s -X POST "$API_URL/api/chat" \
         -H "Content-Type: application/json" \
-        -d "{\"message\": \"$MESSAGE\", \"user_id\": \"test-simple-policy\"}")
+        -d "$PAYLOAD")
     
     if echo "$RESPONSE" | grep -q "error"; then
         log_error "API error"

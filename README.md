@@ -85,7 +85,7 @@ npm install
 VITE_BACKEND=typescript npm run dev
 ```
 
-→ http://localhost:5173 にアクセス
+→ http://localhost:5174 にアクセス（`VITE_PORT` 未指定時のデフォルト）
 
 ## 🔀 バックエンド切り替え
 
@@ -103,6 +103,30 @@ VITE_BACKEND_URL=http://localhost:9000 npm run dev
 ```
 
 画面右上にバックエンドの種類がバッジで表示されます。
+
+## 🌐 フロントを2つ同時に開く（ポートを分ける）
+
+同じ `frontend/` を **2つ同時に起動**して、LangChain / Vertex AI をブラウザで並べて確認できます。
+
+例（LangChain = 5173、Vertex = 5174）:
+
+```bash
+cd frontend
+
+# ターミナルA（LangChain）
+VITE_PORT=5173 VITE_BACKEND_URL=http://kentomax-sales-support-alb-733711893.ap-northeast-1.elb.amazonaws.com npm run dev
+
+# ターミナルB（Vertex / Cloud Run）
+VITE_PORT=5174 VITE_BACKEND_URL=https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.run.app npm run dev
+```
+
+またはスクリプトで一括起動:
+
+```bash
+./scripts/run-dual-frontend.sh \
+  --langchain-url http://kentomax-sales-support-alb-733711893.ap-northeast-1.elb.amazonaws.com \
+  --vertex-url https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.run.app
+```
 
 ## 📊 Datadog LLM Observability
 
@@ -157,6 +181,16 @@ docker-compose up -d backend-typescript
 # テストプロンプト実行
 ./scripts/test-prompts.sh
 ```
+
+包括テスト（LangChain(AWS) と Vertex(Cloud Run) をまとめて）:
+
+```bash
+./scripts/comprehensive-test.sh dual \
+  http://kentomax-sales-support-alb-733711893.ap-northeast-1.elb.amazonaws.com \
+  https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.run.app
+```
+
+`scripts/` の役割一覧は `scripts/README.md` を参照。
 
 ## 📚 ドキュメント
 
