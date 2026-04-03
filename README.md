@@ -152,6 +152,14 @@ ddtrace-run uvicorn app.main:app --reload --port 8000
 Vertex版（Cloud Run + Secret Manager）の詳細は [docs/gcp-infrastructure.md](docs/gcp-infrastructure.md) を参照。
 詳細は [docs/llm-observability.md](docs/llm-observability.md) も参照。
 
+### Hallucination Detection デモ運用メモ（2026-04）
+
+- 今回の Hallucination トレース向け改修は **`backend-python/` のみ** に適用。
+- `backend-python/app/agents/travel_agent.py` で、通常チャット処理中の `agent_executor.ainvoke(...)` を `LLMObs.annotation_context(prompt=...)` で包み、Datadog Evaluation が必要とする query/context を常時付与。
+- このとき専用スパン名や入力プレフィックス（例: `[EVAL][HALLUCINATION]`）には依存しない。
+- **`backend-typescript/` と `backend-python-vertex/` には同等の Hallucination 用手動注釈は未追加**（既存の実装方針のまま）。
+- `scripts/comprehensive-test.sh` には Hallucination 検証入力（テスト9）を追加済み。入力は自然文だが、矛盾・未根拠主張を誘発しやすい内容にしている。
+
 ## 🐳 Docker Compose
 
 ```bash

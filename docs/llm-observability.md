@@ -149,6 +149,7 @@ class HotelSearchTool(BaseTool):
 ```python
 # app/agents/travel_agent.py
 from ddtrace.llmobs import LLMObs
+from contextlib import nullcontext
 
 async def process_message(self, user_message: str, session_data: SessionData):
     # Agent スパン
@@ -163,10 +164,32 @@ async def process_message(self, user_message: str, session_data: SessionData):
         
         # Workflow スパン
         with LLMObs.workflow(name="agent_execution") as workflow_span:
-            result = await self.agent_executor.ainvoke({...})
+            llm_annotation_ctx = self._build_hallucination_annotation_context(
+                user_message=user_message
+            )
+            with llm_annotation_ctx:
+                result = await self.agent_executor.ainvoke({...})
         
         LLMObs.annotate(span=agent_span, output_data={"response": result})
         return result
+
+def _build_hallucination_annotation_context(self, user_message: str):
+    # annotation_context / Prompt が使えない環境ではフォールバック
+    if not hasattr(LLMObs, "annotation_context"):
+        return nullcontext()
+    prompt_cls = self._resolve_ddtrace_prompt_type()
+    if prompt_cls is None:
+        return nullcontext()
+
+    prompt = prompt_cls(
+        variables={
+            "user_question": user_message,
+            "article": HALLUCINATION_REFERENCE_CONTEXT,
+        },
+        rag_query_variables=["user_question"],
+        rag_context_variables=["article"],
+    )
+    return LLMObs.annotation_context(prompt=prompt)
 ```
 
 ---
@@ -414,15 +437,10 @@ Datadog UI の Hallucination Detection を使う場合、評価対象の LLM ス
 このリポジトリでは `backend-python/app/agents/travel_agent.py` で、通常のチャット処理フローに `LLMObs.annotation_context()` を常時付与する構成にしている。
 
 ```python
-prompt = Prompt(
-    variables={
-        "user_question": user_question,
-        "article": HALLUCINATION_REFERENCE_CONTEXT,
-    },
-    rag_query_variables=["user_question"],
-    rag_context_variables=["article"],
+llm_annotation_ctx = self._build_hallucination_annotation_context(
+    user_message=user_message
 )
-with LLMObs.annotation_context(prompt=prompt):
+with llm_annotation_ctx:
     result = await self.agent_executor.ainvoke(...)
 ```
 
@@ -432,7 +450,7 @@ with LLMObs.annotation_context(prompt=prompt):
 2. `./scripts/comprehensive-test.sh python <AWS_LANGCHAIN_URL>` を実行
 3. Datadog LLM Observability の Traces で以下をフィルタ
    - `ml_app:python-llm-salessupport`
-   - 実行時間範囲（再テスト直後）+ 入力内容（通常チャット文）で対象を絞る
+   - 実行時間範囲（再テスト直後）+ テスト9相当の入力内容（自然文だが矛盾/未根拠主張を誘発しやすい問い合わせ）で対象を絞る
 4. Evaluation 設定で Hallucination Detection を有効化し、`Contradiction` / `Unsupported Claim` の判定を確認
 
 ### 10.2 注意点
@@ -441,6 +459,12 @@ with LLMObs.annotation_context(prompt=prompt):
 - `ddtrace` は最新系を利用する（`backend-python/requirements.txt` の `ddtrace` 依存を更新した状態でインストール）。
 - このデモではスクリプト側で正誤判定はせず、Datadog Evaluation 側で判定する。
 - 専用スパン名や入力プレフィックスに依存しないため、通常利用に近いトレース構造で確認できる。
+
+### 10.3 適用範囲（今回改修）
+
+- Hallucination Detection 向けの `Prompt` 注釈追加は **Python LangChain バックエンド（`backend-python/`）のみ**。
+- `backend-typescript/` と `backend-python-vertex/` は、今回この注釈方式への変更は行っていない。
+- `scripts/comprehensive-test.sh` は更新済みで、テスト9に自然文ベースの Hallucination 検証入力を含む。
 
 ---
 

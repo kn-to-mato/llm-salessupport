@@ -43,18 +43,9 @@ VITE_BACKEND_URL=https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.r
 
 ---
 
-## TODO（未着手）
+## TODO（現時点）
 
-- [ ] Datadog LLM Observability（auto instrumentation）を Cloud Run の `backend-python-vertex` に追加
-  - [ ] `ddtrace` 依存追加 + `ddtrace-run` 起動（カスタム計装なし）
-  - [ ] `DD_API_KEY` を GCP Secret Manager（`kento-tomax-api-key-for-log`）から注入
-  - [ ] `DD_LLMOBS_ML_APP` 等の env 設定（Vertex版と判別できる名前）
-  - [ ] Cloud Run へデプロイし、E2E 動作確認（包括テスト + 実UI）
-- [ ] Vertex AI（Gemini）で **実際に** ツール呼び出し（function calling）が成立することを確認（Cloud Run上での疎通を優先）
-- [ ] 既存フロント互換（request/response shape）を確認し、必要なら調整（Vertex有効時）
-- [ ] Terraform（GCP）を apply して Artifact Registry / Cloud Run / IAM を実際に作成
-- [ ] Artifact Registry へコンテナを push し、Cloud Run にデプロイして URL を確定
-- [ ] `docs/gcp-infrastructure.md` 新設、`README.md` 更新（LLM Obsなし前提）
+- [ ] 追加の改善タスクが発生したら追記
 
 ---
 
@@ -75,6 +66,11 @@ VITE_BACKEND_URL=https://kentomax-sales-support-backend-vertex-n4ow3sy4fq-an.a.r
 - [x] `scripts/comprehensive-test.sh` に customモード（任意URL）とURL上書きを追加
 - [x] フォールバックモード（VERTEX_ENABLED=false）でローカルコンテナを起動し、包括テストが全件成功
 - [x] Terraform（GCP）骨組みを追加（`infra/terraform/gcp`、fmt/validate済み）
+- [x] Vertex 版への Datadog LLM Observability auto instrumentation（`ddtrace-run` + 環境変数）を反映
+- [x] `docs/gcp-infrastructure.md` / `README.md` を Vertex 運用前提に更新
+- [x] Python(LangChain) 側で Hallucination Detection 用 `Prompt` 注釈を通常フローに追加
+- [x] Hallucination 用入力を `scripts/comprehensive-test.sh`（テスト9）へ追加し、自然文ベースへ調整
+- [x] ECS 再デプロイ後に包括テストを再実行し、Datadog 上の評価確認手順を整理
 
 ---
 

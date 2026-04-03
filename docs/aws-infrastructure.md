@@ -119,7 +119,7 @@ aws ecr get-login-password --region ap-northeast-1 --profile kentomax-admin | \
   docker login --username AWS --password-stdin 369042512949.dkr.ecr.ap-northeast-1.amazonaws.com
 
 # バックエンドビルド&プッシュ
-docker build --platform linux/amd64 -t kentomax/sales-support/backend:latest ./backend
+docker build --platform linux/amd64 -t kentomax/sales-support/backend:latest ./backend-python
 docker tag kentomax/sales-support/backend:latest 369042512949.dkr.ecr.ap-northeast-1.amazonaws.com/kentomax/sales-support/backend:latest
 docker push 369042512949.dkr.ecr.ap-northeast-1.amazonaws.com/kentomax/sales-support/backend:latest
 
@@ -217,7 +217,7 @@ aws logs tail /ecs/kentomax_sales-support-backend --follow --profile kentomax-ad
 }
 ```
 
-**注意**: コード修正はCursor、デプロイは手動で確認しながら進める
+**注意**: セキュリティグループは `/32` 制限を維持し、`0.0.0.0/0` は使用しない。
 
 ---
 
@@ -256,5 +256,5 @@ terraform/
 
 - [ ] Aurora PostgreSQL接続によるセッション永続化
 - [ ] HTTPS対応 (ACM証明書 + Route53)
-- [x] Datadog LLM Observability統合 (**ローカル実装完了、ECSデプロイは未**)
+- [x] Datadog LLM Observability統合（ECS反映済み）
 - [ ] Auto Scaling設定
