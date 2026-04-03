@@ -11,6 +11,8 @@ LangChain AgentExecutor を使用した自律的なツール選択:
 4. plan_generator - 出張プラン生成
 """
 import time
+from contextlib import nullcontext
+from importlib import import_module
 from typing import Any, Dict, List, Optional
 
 from langchain_openai import ChatOpenAI
@@ -72,6 +74,16 @@ SYSTEM_PROMPT = """あなたは営業担当者の出張計画をサポートす�
 - 会話の中で条件が揃ったら、すぐに plan_generator を呼び出してください
 - 「お願いします」「それでお願い」などの確認が来たら、条件が揃っていれば plan_generator を呼び出してください
 """
+
+HALLUCINATION_REFERENCE_CONTEXT = """社内旅費規程(モック):
+- 国内出張の宿泊費上限は1泊15,000円
+- 新幹線は普通車指定席が基本。グリーン車は部長以上のみ利用可
+
+交通データ(モック):
+- 東京→大阪(のぞみ): 06:00発 08:22着 14,720円 / 08:00発 10:22着 14,720円
+- 東京→大阪(ひかり): 06:33発 09:23着 14,400円
+
+このコンテキストに明記されない事実は断定しない。"""
 
 
 class TravelSupportAgent:
@@ -198,11 +210,15 @@ class TravelSupportAgent:
                         },
                     )
 
-                    result = await self.agent_executor.ainvoke({
-                        "input": user_message,
-                        "chat_history": chat_history,
-                        "context": context,
-                    })
+                    llm_annotation_ctx = self._build_hallucination_annotation_context(
+                        user_message=user_message
+                    )
+                    with llm_annotation_ctx:
+                        result = await self.agent_executor.ainvoke({
+                            "input": user_message,
+                            "chat_history": chat_history,
+                            "context": context,
+                        })
 
                     agent_output = result.get("output", "")
 
@@ -265,6 +281,43 @@ class TravelSupportAgent:
                     "plans": [],
                     "updated_conditions": session_data.conditions,
                 }
+
+    def _build_hallucination_annotation_context(self, user_message: str):
+        """Hallucination Detection 用の Prompt 注釈コンテキストを返す。"""
+        if not hasattr(LLMObs, "annotation_context"):
+            logger.warning(
+                "hallucination_annotation_skipped",
+                reason="annotation_context not available",
+            )
+            return nullcontext()
+
+        prompt_cls = self._resolve_ddtrace_prompt_type()
+        if prompt_cls is None:
+            logger.warning(
+                "hallucination_annotation_skipped",
+                reason="Prompt type not available",
+            )
+            return nullcontext()
+
+        prompt = prompt_cls(
+            variables={
+                "user_question": user_message,
+                "article": HALLUCINATION_REFERENCE_CONTEXT,
+            },
+            rag_query_variables=["user_question"],
+            rag_context_variables=["article"],
+        )
+        return LLMObs.annotation_context(
+            prompt=prompt,
+        )
+
+    def _resolve_ddtrace_prompt_type(self):
+        """ddtrace.llmobs.types.Prompt を遅延ロードする。"""
+        try:
+            module = import_module("ddtrace.llmobs.types")
+            return getattr(module, "Prompt", None)
+        except Exception:
+            return None
 
     def _build_chat_history(self, messages: List[Message]) -> List:
         """会話履歴をLangChain形式に変換"""

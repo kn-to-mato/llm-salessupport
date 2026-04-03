@@ -407,10 +407,48 @@ with LLMObs.agent(name="travel-support-agent", session_id=session_id) as agent_s
 
 ---
 
-## 10. 参考リンク
+## 10. Hallucination Detection デモ（Python / LangChain）
+
+Datadog UI の Hallucination Detection を使う場合、評価対象の LLM スパンに `Prompt`（query/context）注釈が必要。
+
+このリポジトリでは `backend-python/app/agents/travel_agent.py` で、通常のチャット処理フローに `LLMObs.annotation_context()` を常時付与する構成にしている。
+
+```python
+prompt = Prompt(
+    variables={
+        "user_question": user_question,
+        "article": HALLUCINATION_REFERENCE_CONTEXT,
+    },
+    rag_query_variables=["user_question"],
+    rag_context_variables=["article"],
+)
+with LLMObs.annotation_context(prompt=prompt):
+    result = await self.agent_executor.ainvoke(...)
+```
+
+### 10.1 実行手順（最小）
+
+1. `DD_LLMOBS_ENABLED=1` で Python バックエンドを起動
+2. `./scripts/comprehensive-test.sh python <AWS_LANGCHAIN_URL>` を実行
+3. Datadog LLM Observability の Traces で以下をフィルタ
+   - `ml_app:python-llm-salessupport`
+   - 実行時間範囲（再テスト直後）+ 入力内容（通常チャット文）で対象を絞る
+4. Evaluation 設定で Hallucination Detection を有効化し、`Contradiction` / `Unsupported Claim` の判定を確認
+
+### 10.2 注意点
+
+- Hallucination Detection は OpenAI judge モデルの設定が必要（Datadog UI の指示に従う）。
+- `ddtrace` は最新系を利用する（`backend-python/requirements.txt` の `ddtrace` 依存を更新した状態でインストール）。
+- このデモではスクリプト側で正誤判定はせず、Datadog Evaluation 側で判定する。
+- 専用スパン名や入力プレフィックスに依存しないため、通常利用に近いトレース構造で確認できる。
+
+---
+
+## 11. 参考リンク
 
 - [LLM Observability SDK (Python)](https://docs.datadoghq.com/llm_observability/instrumentation/sdk?tab=python)
 - [LLM Observability SDK (Node.js)](https://docs.datadoghq.com/llm_observability/instrumentation/sdk?tab=nodejs)
 - [Auto Instrumentation](https://docs.datadoghq.com/llm_observability/instrumentation/auto_instrumentation)
 - [LLM Observability Terms](https://docs.datadoghq.com/llm_observability/terms/)
+- [Hallucination Detection (OOTB Evaluations)](https://docs.datadoghq.com/llm_observability/evaluations/ootb_evaluations/?tab=openai#hallucination)
 

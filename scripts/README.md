@@ -2,6 +2,7 @@
 
 ### テスト系
 - **`comprehensive-test.sh`**: 1回で複数の代表入力を流す「包括E2E」テスト。`dual` モードで LangChain(AWS) と Vertex(Cloud Run) に同じテストセットを投げられる。
+  - Datadog Evaluation 用に、通常チャット文ベースの Hallucination 検証入力も含み、自然なトレースでデモトラフィックを生成可能。
 - **`test-prompts.sh`**: Datadog LLM Observability の「ツール呼び出しパターン差」を確認するためのデモ用プロンプトセット（4パターン）。
 - **`test-company-tags.sh`**: `company_name` を変えながら大量リクエストを投げ、Datadog側でタグフィルタが効くことを確認する。
 - **`load-test.sh`**: 10秒間隔でランダムなシナリオを回し続ける簡易負荷テスト（止めるまで動く）。

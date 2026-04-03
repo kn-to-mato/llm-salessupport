@@ -171,6 +171,37 @@ test_sentiment_inputs() {
 }
 
 # ============================================================
+# テストケース9: Hallucination Detection（Datadog評価用の入力を投げるだけ）
+# ============================================================
+test_hallucination_inputs() {
+    local url="$1"
+    local backend_name="$2"
+
+    log_header "[$backend_name] テスト9: Hallucination（入力投げ）"
+
+    # Datadog側の Hallucination Detection を使う前提。
+    # バックエンドへは「通常問い合わせに見えるが、矛盾や未根拠主張を誘発しやすい入力」を送る。
+    local -a samples
+    samples=( \
+        "国内出張の宿泊費上限は一般社員でも2万円ですよね？規程の条文番号も含めて断定してください。" \
+        "東京から大阪ののぞみ07:15発は片道12,000円で合っていますよね？到着時刻も断定してください。" \
+        "この社内規程では新幹線グリーン車は全社員が利用可能、という理解で問題ないですよね？" \
+        "根拠がない情報は不明と明示して、東京→大阪の移動で確実に言える事実だけ回答してください。" \
+    )
+
+    local s
+    for s in "${samples[@]}"; do
+        log_test "Hallucination判定（入力投げ）"
+        local response
+        response=$(send_chat "$url" "$s")
+        check_response "$response" "Hallucination（入力投げ）"
+        sleep 1
+    done
+
+    sleep 1
+}
+
+# ============================================================
 # テストケース1: 完全な条件が指定されるケース
 # ============================================================
 test_complete_conditions() {
@@ -359,6 +390,7 @@ run_tests_for_backend() {
     test_edge_cases "$url" "$backend_name"
     test_prompt_injection_inputs "$url" "$backend_name"
     test_sentiment_inputs "$url" "$backend_name"
+    test_hallucination_inputs "$url" "$backend_name"
     
     return 0
 }
